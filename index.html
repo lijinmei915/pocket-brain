@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pocket Brain — 你的第二大脑</title>
+<!-- PWA -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#2563EB" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Pocket Brain" />
+<link rel="apple-touch-icon" href="icons/icon192.png" />
+<style>
+  /* ── Reset & Base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #2563EB;
+    --primary-light: #EFF6FF;
+    --accent: #F97316;
+    --bg: #F8FAFC;
+    --bg2: #FFFFFF;
+    --border: #E2E8F0;
+    --text: #1E293B;
+    --text-muted: #64748B;
+    --text-faint: #94A3B8;
+    --success: #16A34A;
+    --danger: #DC2626;
+    --danger-light: #FEF2F2;
+    --sidebar-w: 260px;
+    --radius: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+    --shadow-md: 0 4px 12px rgba(0,0,0,.1);
+  }
+  html, body { height: 100%; font-family: -apple-system, 'Inter', 'Segoe UI', sans-serif; font-size: 15px; color: var(--text); background: var(--bg); overflow: hidden; }
+
+  /* ── Layout ── */
+  #app { display: flex; height: 100vh; }
+  .sidebar { width: var(--sidebar-w); min-width: var(--sidebar-w); background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; user-select: none; }
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .topbar { height: 56px; min-height: 56px; background: var(--bg2); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; padding: 0 20px; }
+  .content-area { flex: 1; overflow-y: auto; padding: 24px; }
+
+  /* ── Sidebar ── */
+  .sidebar-header { padding: 16px; border-bottom: 1px solid var(--border); }
+  .logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 16px; color: var(--text); text-decoration: none; }
+  .logo-icon { width: 28px; height: 28px; background: var(--primary); border-radius: 7px; display: flex; align-items: center; justify-content: center; }
+  .logo-icon svg { width: 16px; height: 16px; fill: white; }
+
+  .sidebar-section { padding: 8px; }
+  .sidebar-label { font-size: 11px; font-weight: 600; color: var(--text-faint); letter-spacing: .08em; text-transform: uppercase; padding: 8px 8px 4px; }
+  .sidebar-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: var(--radius); cursor: pointer; font-size: 13.5px; color: var(--text-muted); transition: background .15s, color .15s; white-space: nowrap; overflow: hidden; }
+  .sidebar-item:hover { background: var(--bg); color: var(--text); }
+  .sidebar-item.active { background: var(--primary-light); color: var(--primary); font-weight: 500; }
+  .sidebar-item svg { width: 15px; height: 15px; flex-shrink: 0; }
+  .sidebar-item .item-count { margin-left: auto; font-size: 11px; background: var(--border); border-radius: 10px; padding: 1px 6px; color: var(--text-faint); }
+  .sidebar-item.active .item-count { background: #DBEAFE; color: var(--primary); }
+
+  /* Tree */
+  .tree-section { flex: 1; overflow-y: auto; padding: 8px; }
+  .tree-node { }
+  .tree-node-row { display: flex; align-items: center; gap: 4px; padding: 5px 8px; border-radius: var(--radius); cursor: pointer; font-size: 13.5px; color: var(--text-muted); transition: background .15s, color .15s; }
+  .tree-node-row:hover { background: var(--bg); color: var(--text); }
+  .tree-node-row.active { background: var(--primary-light); color: var(--primary); }
+  .tree-node-row.drag-over { background: #DBEAFE; border: 1.5px dashed var(--primary); }
+  .tree-chevron { width: 16px; height: 16px; flex-shrink: 0; transition: transform .15s; color: var(--text-faint); }
+  .tree-chevron.open { transform: rotate(90deg); }
+  .tree-folder-icon { width: 15px; height: 15px; flex-shrink: 0; }
+  .tree-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tree-count { font-size: 11px; color: var(--text-faint); }
+  .tree-children { padding-left: 16px; }
+  .tree-node-row .btn-icon-xs { opacity: 0; transition: opacity .15s; }
+  .tree-node-row:hover .btn-icon-xs { opacity: 1; }
+
+  .add-folder-btn { display: flex; align-items: center; gap: 6px; padding: 6px 10px; font-size: 13px; color: var(--text-faint); cursor: pointer; border-radius: var(--radius); transition: color .15s, background .15s; width: 100%; border: none; background: none; }
+  .add-folder-btn:hover { color: var(--primary); background: var(--primary-light); }
+
+  /* ── Topbar ── */
+  .search-wrap { flex: 1; max-width: 480px; position: relative; }
+  .search-input { width: 100%; padding: 7px 12px 7px 34px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 13.5px; background: var(--bg); color: var(--text); outline: none; transition: border .15s; }
+  .search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+  .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-faint); pointer-events: none; }
+  .topbar-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
+  /* ── Buttons ── */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: var(--radius); font-size: 13.5px; font-weight: 500; cursor: pointer; border: none; transition: all .15s; line-height: 1.4; }
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-primary:hover { background: #1D4ED8; }
+  .btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--bg); color: var(--text); }
+  .btn-danger { background: var(--danger); color: white; }
+  .btn-danger:hover { background: #B91C1C; }
+  .btn-icon { width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: var(--radius); border: none; background: transparent; cursor: pointer; color: var(--text-muted); transition: all .15s; }
+  .btn-icon:hover { background: var(--bg); color: var(--text); }
+  .btn-icon-xs { width: 22px; height: 22px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 5px; border: none; background: transparent; cursor: pointer; color: var(--text-faint); transition: all .15s; flex-shrink: 0; }
+  .btn-icon-xs:hover { background: var(--border); color: var(--text); }
+  .btn svg { width: 14px; height: 14px; }
+  .btn-icon svg { width: 15px; height: 15px; }
+  .btn-icon-xs svg { width: 13px; height: 13px; }
+
+  /* ── Cards Grid ── */
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; cursor: pointer; transition: box-shadow .15s, transform .15s; display: flex; flex-direction: column; }
+  .card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+  .card.dragging { opacity: .5; box-shadow: var(--shadow-md); }
+  .card-thumb { width: 100%; height: 140px; object-fit: cover; background: linear-gradient(135deg, #EFF6FF, #DBEAFE); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .card-thumb-icon { width: 40px; height: 40px; color: #93C5FD; }
+  .card-body { padding: 12px 14px; flex: 1; }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--text); line-height: 1.4; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card-url { font-size: 12px; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 6px; }
+  .card-desc { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card-footer { padding: 8px 14px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .tag { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 20px; font-size: 11px; color: var(--text-muted); }
+  .type-badge { font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 4px; }
+  .type-article { background: #EFF6FF; color: #2563EB; }
+  .type-video { background: #FFF7ED; color: #C2410C; }
+  .type-audio { background: #F0FDF4; color: #15803D; }
+  .type-tweet { background: #EFF6FF; color: #1D4ED8; }
+  .type-other { background: #F8FAFC; color: #64748B; }
+  .card-date { margin-left: auto; font-size: 11px; color: var(--text-faint); }
+  .card-actions { display: flex; gap: 4px; opacity: 0; transition: opacity .15s; }
+  .card:hover .card-actions { opacity: 1; }
+
+  /* ── List View ── */
+  .list-item { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; display: flex; align-items: center; gap: 14px; cursor: pointer; transition: box-shadow .15s; margin-bottom: 8px; }
+  .list-item:hover { box-shadow: var(--shadow); }
+  .list-item.dragging { opacity: .5; }
+  .list-item-icon { width: 36px; height: 36px; border-radius: 6px; background: var(--primary-light); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .list-item-icon svg { width: 18px; height: 18px; color: var(--primary); }
+  .list-item-body { flex: 1; min-width: 0; }
+  .list-item-title { font-size: 14px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .list-item-url { font-size: 12px; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .list-item-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .list-item-actions { display: flex; gap: 4px; opacity: 0; transition: opacity .15s; }
+  .list-item:hover .list-item-actions { opacity: 1; }
+
+  /* ── Empty State ── */
+  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px; text-align: center; gap: 12px; }
+  .empty-icon { width: 64px; height: 64px; color: var(--border); }
+  .empty-title { font-size: 17px; font-weight: 600; color: var(--text-muted); }
+  .empty-desc { font-size: 14px; color: var(--text-faint); max-width: 320px; line-height: 1.6; }
+
+  /* ── Section title ── */
+  .section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .section-title { font-size: 18px; font-weight: 700; color: var(--text); }
+  .section-count { font-size: 13px; color: var(--text-faint); }
+  .view-toggle { display: flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .view-btn { padding: 5px 9px; background: transparent; border: none; cursor: pointer; color: var(--text-faint); transition: all .15s; display: flex; align-items: center; }
+  .view-btn.active { background: var(--primary); color: white; }
+  .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .filter-chip { padding: 4px 12px; border-radius: 20px; font-size: 12.5px; border: 1px solid var(--border); background: var(--bg2); cursor: pointer; color: var(--text-muted); transition: all .15s; }
+  .filter-chip.active { background: var(--primary); color: white; border-color: var(--primary); }
+  .filter-chip:hover:not(.active) { border-color: var(--primary); color: var(--primary); }
+
+  /* ── Modal ── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.45); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity .2s; }
+  .modal-overlay.open { opacity: 1; pointer-events: auto; }
+  .modal { background: var(--bg2); border-radius: 12px; width: 100%; max-width: 520px; box-shadow: 0 20px 60px rgba(0,0,0,.18); transform: translateY(8px); transition: transform .2s; }
+  .modal-overlay.open .modal { transform: translateY(0); }
+  .modal-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .modal-title { font-size: 16px; font-weight: 700; }
+  .modal-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+
+  /* ── Form ── */
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-label { font-size: 13px; font-weight: 500; color: var(--text-muted); }
+  .form-input, .form-textarea, .form-select { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; color: var(--text); background: var(--bg2); outline: none; transition: border .15s; font-family: inherit; }
+  .form-input:focus, .form-textarea:focus, .form-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+  .form-textarea { resize: vertical; min-height: 72px; }
+
+  /* ── Detail panel ── */
+  .detail-panel { position: fixed; right: 0; top: 0; bottom: 0; width: 400px; background: var(--bg2); border-left: 1px solid var(--border); z-index: 500; display: flex; flex-direction: column; transform: translateX(100%); transition: transform .25s cubic-bezier(.4,0,.2,1); box-shadow: -4px 0 24px rgba(0,0,0,.08); }
+  .detail-panel.open { transform: translateX(0); }
+  .detail-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+  .detail-body { flex: 1; overflow-y: auto; padding: 20px; }
+  .detail-thumb { width: 100%; height: 180px; object-fit: cover; border-radius: var(--radius); background: linear-gradient(135deg, #EFF6FF, #DBEAFE); display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+  .detail-title { font-size: 17px; font-weight: 700; line-height: 1.4; margin-bottom: 8px; }
+  .detail-url { font-size: 12px; color: var(--primary); text-decoration: none; display: block; margin-bottom: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .detail-url:hover { text-decoration: underline; }
+  .detail-section-title { font-size: 12px; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: .08em; margin: 16px 0 6px; }
+  .detail-desc { font-size: 14px; color: var(--text-muted); line-height: 1.7; }
+  .detail-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .detail-footer { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+
+  /* ── Drag ghost ── */
+  .drag-ghost { position: fixed; pointer-events: none; z-index: 9999; background: var(--bg2); border: 2px solid var(--primary); border-radius: var(--radius); padding: 8px 12px; font-size: 13px; font-weight: 500; color: var(--primary); box-shadow: var(--shadow-md); opacity: .9; }
+
+  /* ── Toast ── */
+  .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 2000; display: flex; flex-direction: column; gap: 8px; }
+  .toast { background: var(--text); color: white; padding: 10px 16px; border-radius: var(--radius); font-size: 13.5px; box-shadow: var(--shadow-md); animation: toast-in .2s ease; max-width: 320px; display: flex; align-items: center; gap: 8px; }
+  .toast.success { background: var(--success); }
+  .toast.error { background: var(--danger); }
+  @keyframes toast-in { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .sidebar { position: fixed; left: 0; top: 0; bottom: 0; z-index: 400; transform: translateX(-100%); transition: transform .25s; }
+    .sidebar.open { transform: translateX(0); }
+    .detail-panel { width: 100%; }
+    .cards-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="#" class="logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+        </div>
+        Pocket Brain
+      </a>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">收藏箱</div>
+      <div class="sidebar-item active" onclick="setView('inbox')" id="nav-inbox">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-6l-2 3H10l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg>
+        收件箱
+        <span class="item-count" id="inbox-count">0</span>
+      </div>
+      <div class="sidebar-item" onclick="setView('all')" id="nav-all">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        全部内容
+        <span class="item-count" id="all-count">0</span>
+      </div>
+    </div>
+
+    <div class="tree-section">
+      <div class="sidebar-label" style="padding: 8px 8px 4px;">文件夹</div>
+      <div id="tree-root"></div>
+      <button class="add-folder-btn" onclick="openAddFolder(null)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        新建文件夹
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="topbar">
+      <button class="btn-icon" id="menu-btn" onclick="toggleSidebar()" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="search-wrap">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input class="search-input" type="search" placeholder="搜索标题、网址、备注…" id="search-input" oninput="onSearch(this.value)" />
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-primary" onclick="openAddModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          添加
+        </button>
+      </div>
+    </div>
+    <div class="content-area" id="content-area"></div>
+  </main>
+</div>
+
+<!-- Detail Panel -->
+<div class="detail-panel" id="detail-panel">
+  <div class="detail-header">
+    <button class="btn-icon" onclick="closeDetail()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <span style="font-weight:600;font-size:14px;">详情</span>
+    <div style="margin-left:auto;display:flex;gap:4px;">
+      <button class="btn-icon" id="detail-edit-btn" onclick="editCurrentItem()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      </button>
+      <button class="btn-icon" id="detail-delete-btn" onclick="deleteCurrentItem()" style="color:var(--danger)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="detail-body" id="detail-body"></div>
+  <div class="detail-footer">
+    <a id="detail-open-link" href="#" target="_blank" rel="noopener" class="btn btn-primary" style="flex:1;justify-content:center;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      打开链接
+    </a>
+  </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-overlay" id="add-modal" onclick="closeModal(event)">
+  <div class="modal" onclick="e=>e.stopPropagation()">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title">添加内容</span>
+      <button class="btn-icon" onclick="closeAddModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">链接 / URL *</label>
+        <input class="form-input" id="input-url" type="url" placeholder="https://" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">标题 *</label>
+        <input class="form-input" id="input-title" type="text" placeholder="输入标题" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">类型</label>
+        <select class="form-select" id="input-type">
+          <option value="article">📄 文章</option>
+          <option value="video">🎬 视频</option>
+          <option value="audio">🎵 音频</option>
+          <option value="tweet">🐦 推文/帖子</option>
+          <option value="other">📎 其他</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">备注</label>
+        <textarea class="form-textarea" id="input-note" placeholder="为什么收藏这个？简单记录一下…"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">标签（空格分隔）</label>
+        <input class="form-input" id="input-tags" type="text" placeholder="设计 工具 灵感" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">存入文件夹</label>
+        <select class="form-select" id="input-folder"></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeAddModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveItem()" id="save-btn">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Folder Modal -->
+<div class="modal-overlay" id="folder-modal" onclick="closeFolderModal(event)">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-header">
+      <span class="modal-title" id="folder-modal-title">新建文件夹</span>
+      <button class="btn-icon" onclick="closeFolderModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">文件夹名称</label>
+        <input class="form-input" id="folder-name-input" type="text" placeholder="例：设计灵感" onkeydown="if(event.key==='Enter')saveFolderModal()" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeFolderModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveFolderModal()">创建</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// DATA LAYER — designed for easy cloud migration
+// Replace LocalStorage with API calls here in the future
+// ═══════════════════════════════════════════════════════
+const DB = {
+  KEY_ITEMS: 'pb_items',
+  KEY_FOLDERS: 'pb_folders',
+  getItems() { try { return JSON.parse(localStorage.getItem(this.KEY_ITEMS) || '[]'); } catch(e){ return []; } },
+  getFolders() { try { return JSON.parse(localStorage.getItem(this.KEY_FOLDERS) || '[]'); } catch(e){ return []; } },
+  saveItems(items) { localStorage.setItem(this.KEY_ITEMS, JSON.stringify(items)); },
+  saveFolders(folders) { localStorage.setItem(this.KEY_FOLDERS, JSON.stringify(folders)); },
+  // TODO(cloud): replace above with fetch('/api/items') etc.
+};
+
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+let state = {
+  items: [],
+  folders: [],
+  currentView: 'inbox',      // 'inbox' | 'all' | folder id
+  currentFolderId: null,
+  searchQuery: '',
+  typeFilter: 'all',
+  viewMode: 'grid',          // 'grid' | 'list'
+  editingItemId: null,
+  selectedItemId: null,
+  addFolderParentId: null,
+  editingFolderId: null,
+  expandedFolders: new Set(),
+};
+
+function loadState() {
+  state.items = DB.getItems();
+  state.folders = DB.getFolders();
+  // Seed with sample data if empty
+  if (state.items.length === 0) seedSampleData();
+}
+
+function seedSampleData() {
+  state.folders = [
+    { id: 'f1', name: '设计灵感', parentId: null, createdAt: Date.now()-86400000*3 },
+    { id: 'f2', name: '技术文章', parentId: null, createdAt: Date.now()-86400000*2 },
+    { id: 'f3', name: 'UI 工具', parentId: 'f1', createdAt: Date.now()-86400000 },
+  ];
+  state.items = [
+    { id: 'i1', title: 'The Art of Minimal Web Design', url: 'https://smashingmagazine.com', type: 'article', note: '极简设计的精髓讲得很透彻，值得反复读', tags: ['设计', '极简'], folderId: 'f1', createdAt: Date.now()-86400000*4, thumbnail: '' },
+    { id: 'i2', title: 'Figma 新特性 — 变量与原型联动', url: 'https://youtube.com/watch?v=xxx', type: 'video', note: '变量系统彻底改变了组件逻辑设计方式', tags: ['Figma', 'UI'], folderId: 'f3', createdAt: Date.now()-86400000*3, thumbnail: '' },
+    { id: 'i3', title: 'How Large Language Models Work', url: 'https://writings.stephenwolfram.com', type: 'article', note: '从数学底层理解 LLM 的最佳入门材料', tags: ['AI', '技术'], folderId: 'f2', createdAt: Date.now()-86400000*2, thumbnail: '' },
+    { id: 'i4', title: '产品设计师的认知误区 — 刚收藏待整理', url: 'https://medium.com/xxx', type: 'article', note: '', tags: [], folderId: null, createdAt: Date.now()-3600000, thumbnail: '' },
+    { id: 'i5', title: 'Typography Fundamentals', url: 'https://fonts.google.com', type: 'article', note: '字体排版基础，书签里找到的', tags: ['字体'], folderId: null, createdAt: Date.now()-7200000, thumbnail: '' },
+  ];
+  DB.saveItems(state.items);
+  DB.saveFolders(state.folders);
+}
+
+// ═══════════════════════════════════════════════════════
+// COMPUTED HELPERS
+// ═══════════════════════════════════════════════════════
+function getInboxItems() { return state.items.filter(i => !i.folderId); }
+function getAllItems() { return state.items; }
+function getFolderItems(folderId) {
+  const allDescendants = new Set(getDescendantFolderIds(folderId));
+  allDescendants.add(folderId);
+  return state.items.filter(i => allDescendants.has(i.folderId));
+}
+function getDescendantFolderIds(folderId) {
+  const children = state.folders.filter(f => f.parentId === folderId).map(f => f.id);
+  return children.reduce((acc, id) => [...acc, id, ...getDescendantFolderIds(id)], []);
+}
+function getFilteredItems() {
+  let items;
+  if (state.currentView === 'inbox') items = getInboxItems();
+  else if (state.currentView === 'all') items = getAllItems();
+  else items = getFolderItems(state.currentView);
+
+  if (state.typeFilter !== 'all') items = items.filter(i => i.type === state.typeFilter);
+  if (state.searchQuery) {
+    const q = state.searchQuery.toLowerCase();
+    items = items.filter(i =>
+      i.title.toLowerCase().includes(q) ||
+      i.url.toLowerCase().includes(q) ||
+      (i.note||'').toLowerCase().includes(q) ||
+      (i.tags||[]).some(t => t.toLowerCase().includes(q))
+    );
+  }
+  return items.sort((a,b) => b.createdAt - a.createdAt);
+}
+function folderItemCount(folderId) { return getFolderItems(folderId).length; }
+function genId() { return Math.random().toString(36).slice(2) + Date.now().toString(36); }
+function relativeTime(ts) {
+  const d = Date.now() - ts, m = 60000, h = 3600000, day = 86400000;
+  if (d < m) return '刚刚';
+  if (d < h) return Math.floor(d/m) + ' 分钟前';
+  if (d < day) return Math.floor(d/h) + ' 小时前';
+  if (d < day*30) return Math.floor(d/day) + ' 天前';
+  return new Date(ts).toLocaleDateString('zh-CN');
+}
+function getDomain(url) { try { return new URL(url).hostname.replace('www.',''); } catch(e){ return url; } }
+function typeLabel(t) { return {article:'文章',video:'视频',audio:'音频',tweet:'帖子',other:'其他'}[t]||'其他'; }
+
+// ═══════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════
+function render() {
+  renderTree();
+  renderContent();
+  updateNavCounts();
+}
+
+function updateNavCounts() {
+  document.getElementById('inbox-count').textContent = getInboxItems().length;
+  document.getElementById('all-count').textContent = state.items.length;
+  ['inbox','all'].forEach(v => {
+    const el = document.getElementById('nav-'+v);
+    el.classList.toggle('active', state.currentView === v);
+  });
+}
+
+// ── Tree ──
+function renderTree() {
+  const root = document.getElementById('tree-root');
+  const topLevel = state.folders.filter(f => !f.parentId);
+  root.innerHTML = topLevel.map(f => renderTreeNode(f, 0)).join('');
+  // bind drag events after render
+  root.querySelectorAll('.tree-node-row[data-folder-id]').forEach(el => {
+    el.addEventListener('dragover', onFolderDragOver);
+    el.addEventListener('dragleave', onFolderDragLeave);
+    el.addEventListener('drop', onFolderDrop);
+  });
+}
+
+function renderTreeNode(folder, depth) {
+  const children = state.folders.filter(f => f.parentId === folder.id);
+  const isOpen = state.expandedFolders.has(folder.id);
+  const isActive = state.currentView === folder.id;
+  const count = folderItemCount(folder.id);
+  return `
+    <div class="tree-node" data-id="${folder.id}">
+      <div class="tree-node-row ${isActive?'active':''}" data-folder-id="${folder.id}"
+        onclick="selectFolder('${folder.id}', event)"
+        ondblclick="startRenameFolder('${folder.id}')"
+      >
+        ${children.length > 0
+          ? `<svg class="tree-chevron ${isOpen?'open':''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" onclick="toggleFolder('${folder.id}',event)"><polyline points="9 18 15 12 9 6"/></svg>`
+          : `<span style="width:16px;flex-shrink:0"></span>`}
+        <svg class="tree-folder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+        <span class="tree-name">${escHtml(folder.name)}</span>
+        <span class="tree-count">${count||''}</span>
+        <button class="btn-icon-xs" onclick="openAddFolder('${folder.id}', event)" title="新建子文件夹">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <button class="btn-icon-xs" onclick="deleteFolder('${folder.id}', event)" title="删除" style="color:var(--danger)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+        </button>
+      </div>
+      ${isOpen && children.length > 0 ? `<div class="tree-children">${children.map(c=>renderTreeNode(c, depth+1)).join('')}</div>` : ''}
+    </div>
+  `;
+}
+
+// ── Content ──
+function renderContent() {
+  const items = getFilteredItems();
+  const area = document.getElementById('content-area');
+
+  const title = state.currentView === 'inbox' ? '收件箱'
+    : state.currentView === 'all' ? '全部内容'
+    : (state.folders.find(f=>f.id===state.currentView)||{name:'文件夹'}).name;
+
+  const typeFilters = [
+    {v:'all',l:'全部'},
+    {v:'article',l:'文章'},
+    {v:'video',l:'视频'},
+    {v:'audio',l:'音频'},
+    {v:'tweet',l:'帖子'},
+    {v:'other',l:'其他'},
+  ];
+
+  area.innerHTML = `
+    <div class="section-header">
+      <span class="section-title">${escHtml(title)}</span>
+      <span class="section-count">${items.length} 项</span>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+        <div class="view-toggle">
+          <button class="view-btn ${state.viewMode==='grid'?'active':''}" onclick="setViewMode('grid')" title="网格">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          </button>
+          <button class="view-btn ${state.viewMode==='list'?'active':''}" onclick="setViewMode('list')" title="列表">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="filter-bar">
+      ${typeFilters.map(f=>`<button class="filter-chip ${state.typeFilter===f.v?'active':''}" onclick="setTypeFilter('${f.v}')">${f.l}</button>`).join('')}
+    </div>
+    ${items.length === 0 ? renderEmpty() : (state.viewMode === 'grid' ? renderGrid(items) : renderList(items))}
+  `;
+
+  // bind drag events on cards
+  area.querySelectorAll('[data-item-id]').forEach(el => {
+    el.setAttribute('draggable', 'true');
+    el.addEventListener('dragstart', onItemDragStart);
+    el.addEventListener('dragend', onItemDragEnd);
+  });
+}
+
+function renderEmpty() {
+  return `<div class="empty-state">
+    <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-6l-2 3H10l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg>
+    <div class="empty-title">这里还没有内容</div>
+    <div class="empty-desc">点击右上角「添加」按钮，或使用浏览器插件快速收藏任意网页</div>
+    <button class="btn btn-primary" style="margin-top:8px" onclick="openAddModal()">添加第一条内容</button>
+  </div>`;
+}
+
+function typeIconSvg(type) {
+  const icons = {
+    article: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,
+    video: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="15" height="10" rx="2"/><polygon points="22 12 17 7 17 17 22 12"/></svg>`,
+    audio: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`,
+    tweet: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z"/></svg>`,
+    other: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>`,
+  };
+  return icons[type] || icons.other;
+}
+
+function renderGrid(items) {
+  return `<div class="cards-grid">${items.map(item => `
+    <div class="card" data-item-id="${item.id}" onclick="openDetail('${item.id}')">
+      <div class="card-thumb">
+        <svg class="card-thumb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">${typeIconSvg(item.type).replace('<svg','').replace('viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"','')}</svg>
+      </div>
+      <div class="card-body">
+        <div class="card-title">${escHtml(item.title)}</div>
+        <div class="card-url">${getDomain(item.url)}</div>
+        ${item.note ? `<div class="card-desc">${escHtml(item.note)}</div>` : ''}
+      </div>
+      <div class="card-footer">
+        <span class="type-badge type-${item.type}">${typeLabel(item.type)}</span>
+        ${(item.tags||[]).slice(0,2).map(t=>`<span class="tag">${escHtml(t)}</span>`).join('')}
+        <span class="card-date">${relativeTime(item.createdAt)}</span>
+        <div class="card-actions" onclick="event.stopPropagation()">
+          <button class="btn-icon-xs" onclick="openEditModal('${item.id}')" title="编辑">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="btn-icon-xs" onclick="deleteItem('${item.id}')" title="删除" style="color:var(--danger)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  `).join('')}</div>`;
+}
+
+function renderList(items) {
+  return items.map(item => `
+    <div class="list-item" data-item-id="${item.id}" onclick="openDetail('${item.id}')">
+      <div class="list-item-icon">${typeIconSvg(item.type)}</div>
+      <div class="list-item-body">
+        <div class="list-item-title">${escHtml(item.title)}</div>
+        <div class="list-item-url">${getDomain(item.url)}</div>
+      </div>
+      <div class="list-item-right">
+        <span class="type-badge type-${item.type}">${typeLabel(item.type)}</span>
+        ${(item.tags||[]).slice(0,2).map(t=>`<span class="tag">${escHtml(t)}</span>`).join('')}
+        <span class="card-date">${relativeTime(item.createdAt)}</span>
+        <div class="list-item-actions" onclick="event.stopPropagation()">
+          <button class="btn-icon-xs" onclick="openEditModal('${item.id}')" title="编辑">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="btn-icon-xs" onclick="deleteItem('${item.id}')" title="删除" style="color:var(--danger)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Detail Panel ──
+function openDetail(itemId) {
+  state.selectedItemId = itemId;
+  const item = state.items.find(i=>i.id===itemId);
+  if (!item) return;
+  const body = document.getElementById('detail-body');
+  const folder = state.folders.find(f=>f.id===item.folderId);
+  body.innerHTML = `
+    <div class="detail-thumb">
+      <svg style="width:56px;height:56px;color:#93C5FD" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">${typeIconSvg(item.type).replace('<svg','').replace('viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"','')}</svg>
+    </div>
+    <div class="detail-title">${escHtml(item.title)}</div>
+    <a class="detail-url" href="${escHtml(item.url)}" target="_blank" rel="noopener">${escHtml(item.url)}</a>
+    ${item.note ? `<div class="detail-section-title">备注</div><div class="detail-desc">${escHtml(item.note)}</div>` : ''}
+    <div class="detail-section-title">标签</div>
+    <div class="detail-tags">${(item.tags||[]).length ? item.tags.map(t=>`<span class="tag">${escHtml(t)}</span>`).join('') : '<span style="color:var(--text-faint);font-size:13px">暂无标签</span>'}</div>
+    <div class="detail-section-title">信息</div>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--text-faint)">类型</span><span>${typeLabel(item.type)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--text-faint)">文件夹</span><span>${folder?escHtml(folder.name):'收件箱'}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--text-faint)">来源</span><span>${getDomain(item.url)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--text-faint)">收藏时间</span><span>${relativeTime(item.createdAt)}</span></div>
+    </div>
+  `;
+  document.getElementById('detail-open-link').href = item.url;
+  document.getElementById('detail-panel').classList.add('open');
+}
+function closeDetail() {
+  state.selectedItemId = null;
+  document.getElementById('detail-panel').classList.remove('open');
+}
+function editCurrentItem() { if (state.selectedItemId) openEditModal(state.selectedItemId); }
+function deleteCurrentItem() {
+  if (state.selectedItemId) { deleteItem(state.selectedItemId); closeDetail(); }
+}
+
+// ═══════════════════════════════════════════════════════
+// ACTIONS
+// ═══════════════════════════════════════════════════════
+function setView(view) {
+  state.currentView = view;
+  state.typeFilter = 'all';
+  state.searchQuery = '';
+  document.getElementById('search-input').value = '';
+  closeDetail();
+  render();
+}
+function selectFolder(folderId, event) {
+  event.stopPropagation();
+  state.currentView = folderId;
+  state.typeFilter = 'all';
+  closeDetail();
+  render();
+}
+function toggleFolder(folderId, event) {
+  event.stopPropagation();
+  if (state.expandedFolders.has(folderId)) state.expandedFolders.delete(folderId);
+  else state.expandedFolders.add(folderId);
+  renderTree();
+}
+function setViewMode(mode) { state.viewMode = mode; renderContent(); }
+function setTypeFilter(f) { state.typeFilter = f; renderContent(); }
+function onSearch(q) { state.searchQuery = q; renderContent(); }
+
+// ── Item CRUD ──
+function openAddModal(prefill) {
+  state.editingItemId = null;
+  document.getElementById('modal-title').textContent = '添加内容';
+  document.getElementById('save-btn').textContent = '保存';
+  document.getElementById('input-url').value = prefill?.url || '';
+  document.getElementById('input-title').value = prefill?.title || '';
+  document.getElementById('input-type').value = prefill?.type || 'article';
+  document.getElementById('input-note').value = '';
+  document.getElementById('input-tags').value = '';
+  populateFolderSelect(null);
+  document.getElementById('add-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('input-url').focus(), 50);
+}
+function openEditModal(itemId) {
+  const item = state.items.find(i=>i.id===itemId);
+  if (!item) return;
+  state.editingItemId = itemId;
+  document.getElementById('modal-title').textContent = '编辑内容';
+  document.getElementById('save-btn').textContent = '保存修改';
+  document.getElementById('input-url').value = item.url;
+  document.getElementById('input-title').value = item.title;
+  document.getElementById('input-type').value = item.type;
+  document.getElementById('input-note').value = item.note || '';
+  document.getElementById('input-tags').value = (item.tags||[]).join(' ');
+  populateFolderSelect(item.folderId);
+  document.getElementById('add-modal').classList.add('open');
+}
+function closeAddModal() {
+  document.getElementById('add-modal').classList.remove('open');
+  state.editingItemId = null;
+}
+function closeModal(event) { if (event.target === event.currentTarget) closeAddModal(); }
+
+function populateFolderSelect(currentFolderId) {
+  const sel = document.getElementById('input-folder');
+  sel.innerHTML = '<option value="">— 收件箱（未分类）—</option>';
+  function addOptions(folders, prefix) {
+    folders.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f.id;
+      opt.textContent = prefix + f.name;
+      if (f.id === currentFolderId) opt.selected = true;
+      sel.appendChild(opt);
+      addOptions(state.folders.filter(c=>c.parentId===f.id), prefix+'  ');
+    });
+  }
+  addOptions(state.folders.filter(f=>!f.parentId), '');
+}
+
+function saveItem() {
+  const url = document.getElementById('input-url').value.trim();
+  const title = document.getElementById('input-title').value.trim();
+  if (!url || !title) { showToast('请填写链接和标题', 'error'); return; }
+  const tags = document.getElementById('input-tags').value.trim().split(/\s+/).filter(Boolean);
+  const folderId = document.getElementById('input-folder').value || null;
+
+  if (state.editingItemId) {
+    const idx = state.items.findIndex(i=>i.id===state.editingItemId);
+    if (idx !== -1) {
+      state.items[idx] = { ...state.items[idx], url, title,
+        type: document.getElementById('input-type').value,
+        note: document.getElementById('input-note').value.trim(),
+        tags, folderId };
+    }
+    showToast('已更新');
+  } else {
+    state.items.unshift({ id: genId(), url, title,
+      type: document.getElementById('input-type').value,
+      note: document.getElementById('input-note').value.trim(),
+      tags, folderId, createdAt: Date.now(), thumbnail: '' });
+    showToast('已保存到' + (folderId ? (state.folders.find(f=>f.id===folderId)||{name:'文件夹'}).name : '收件箱'));
+  }
+  DB.saveItems(state.items);
+  closeAddModal();
+  render();
+}
+
+function deleteItem(itemId, skipConfirm) {
+  if (!skipConfirm && !confirm('确认删除这条内容？')) return;
+  state.items = state.items.filter(i=>i.id!==itemId);
+  DB.saveItems(state.items);
+  showToast('已删除');
+  render();
+}
+
+// ── Folder CRUD ──
+function openAddFolder(parentId, event) {
+  if (event) event.stopPropagation();
+  state.addFolderParentId = parentId;
+  state.editingFolderId = null;
+  document.getElementById('folder-modal-title').textContent = parentId ? '新建子文件夹' : '新建文件夹';
+  document.getElementById('folder-name-input').value = '';
+  document.getElementById('folder-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('folder-name-input').focus(), 50);
+}
+function closeFolderModal(event) {
+  if (event && event.target !== event.currentTarget) return;
+  document.getElementById('folder-modal').classList.remove('open');
+}
+function saveFolderModal() {
+  const name = document.getElementById('folder-name-input').value.trim();
+  if (!name) { showToast('请输入文件夹名称', 'error'); return; }
+  if (state.editingFolderId) {
+    const f = state.folders.find(f=>f.id===state.editingFolderId);
+    if (f) f.name = name;
+    showToast('已重命名');
+  } else {
+    const newFolder = { id: genId(), name, parentId: state.addFolderParentId, createdAt: Date.now() };
+    state.folders.push(newFolder);
+    state.expandedFolders.add(state.addFolderParentId || 'root');
+    showToast('文件夹已创建');
+  }
+  DB.saveFolders(state.folders);
+  document.getElementById('folder-modal').classList.remove('open');
+  render();
+}
+function startRenameFolder(folderId) {
+  const f = state.folders.find(f=>f.id===folderId);
+  if (!f) return;
+  state.editingFolderId = folderId;
+  document.getElementById('folder-modal-title').textContent = '重命名文件夹';
+  document.getElementById('folder-name-input').value = f.name;
+  document.getElementById('folder-modal').classList.add('open');
+  setTimeout(()=>{ const inp=document.getElementById('folder-name-input'); inp.focus(); inp.select(); }, 50);
+}
+function deleteFolder(folderId, event) {
+  event.stopPropagation();
+  const descendants = [folderId, ...getDescendantFolderIds(folderId)];
+  const itemCount = state.items.filter(i=>descendants.includes(i.folderId)).length;
+  const msg = itemCount > 0
+    ? `删除文件夹将会把 ${itemCount} 条内容移回收件箱，确认删除？`
+    : '确认删除这个文件夹？';
+  if (!confirm(msg)) return;
+  // Move items to inbox
+  state.items.forEach(item => { if (descendants.includes(item.folderId)) item.folderId = null; });
+  state.folders = state.folders.filter(f => !descendants.includes(f.id));
+  if (descendants.includes(state.currentView)) state.currentView = 'inbox';
+  DB.saveItems(state.items);
+  DB.saveFolders(state.folders);
+  showToast('文件夹已删除');
+  render();
+}
+
+// ═══════════════════════════════════════════════════════
+// DRAG & DROP
+// ═══════════════════════════════════════════════════════
+let dragItemId = null;
+
+function onItemDragStart(e) {
+  dragItemId = e.currentTarget.dataset.itemId;
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', dragItemId);
+}
+function onItemDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+  dragItemId = null;
+}
+function onFolderDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+function onFolderDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+function onFolderDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const folderId = e.currentTarget.dataset.folderId;
+  const itemId = e.dataTransfer.getData('text/plain') || dragItemId;
+  if (!itemId) return;
+  const item = state.items.find(i=>i.id===itemId);
+  if (!item) return;
+  item.folderId = folderId;
+  DB.saveItems(state.items);
+  const folder = state.folders.find(f=>f.id===folderId);
+  showToast(`已移入「${folder?.name||'文件夹'}」`);
+  render();
+}
+
+// ═══════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════
+function escHtml(str) {
+  return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function showToast(msg, type) {
+  const c = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = 'toast' + (type ? ' '+type : '');
+  el.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">${type==='error'?'<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>':'<polyline points="20 6 9 17 4 12"/>'}</svg>${escHtml(msg)}`;
+  c.appendChild(el);
+  setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(), 300); }, 3000);
+}
+
+// ── Keyboard shortcuts ──
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeAddModal();
+    document.getElementById('folder-modal').classList.remove('open');
+    closeDetail();
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+    e.preventDefault();
+    openAddModal();
+  }
+});
+
+// ── Responsive sidebar ──
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
+function checkResponsive() {
+  const isMobile = window.innerWidth < 768;
+  document.getElementById('menu-btn').style.display = isMobile ? 'flex' : 'none';
+}
+window.addEventListener('resize', checkResponsive);
+checkResponsive();
+
+// ── Listen for messages from extension ──
+window.addEventListener('message', e => {
+  if (e.data?.type === 'POCKET_BRAIN_ADD') {
+    openAddModal({ url: e.data.url, title: e.data.title, type: e.data.contentType || 'article' });
+  }
+});
+// Also expose global function for extension injection
+window.__pocketBrainAdd = function(data) {
+  openAddModal(data);
+};
+
+// ═══════════════════════════════════════════════════════
+// URL PARAMS — iOS Shortcut / Bookmarklet entry point
+// e.g. index.html?url=https://...&title=...&type=article
+// ═══════════════════════════════════════════════════════
+function handleUrlParams() {
+  const p = new URLSearchParams(window.location.search);
+  const url = p.get('url');
+  if (!url) return;
+  const title = p.get('title') || url;
+  const type  = p.get('type')  || 'article';
+  const note  = p.get('note')  || '';
+  // Auto-save without modal if ?autosave=1
+  if (p.get('autosave') === '1') {
+    state.items.unshift({
+      id: genId(), url, title, type, note,
+      tags: [], folderId: null,
+      createdAt: Date.now(), thumbnail: '', source: 'shortcut'
+    });
+    DB.saveItems(state.items);
+    showToast('已保存到收件箱 ✓');
+    // Clean URL without reload
+    window.history.replaceState({}, '', window.location.pathname);
+  } else {
+    // Open modal prefilled
+    setTimeout(() => openAddModal({ url, title, type }), 300);
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// PWA Service Worker
+// ═══════════════════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {/* offline ok */});
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+loadState();
+render();
+handleUrlParams();
+</script>
+</body>
+</html>

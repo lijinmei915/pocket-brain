@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>安装 Bookmarklet — Pocket Brain</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, 'Inter', 'Segoe UI', sans-serif;
+    background: #F8FAFC; color: #1E293B;
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .card {
+    background: white; border-radius: 16px; padding: 36px 40px;
+    max-width: 560px; width: 100%;
+    box-shadow: 0 4px 24px rgba(0,0,0,.08);
+  }
+  .logo { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; }
+  .logo-icon { width: 36px; height: 36px; background: #2563EB; border-radius: 9px; display: flex; align-items: center; justify-content: center; }
+  .logo-icon svg { width: 20px; height: 20px; fill: white; }
+  .logo-text { font-size: 18px; font-weight: 700; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+  .sub { font-size: 14px; color: #64748B; margin-bottom: 28px; line-height: 1.6; }
+
+  .step { display: flex; gap: 14px; margin-bottom: 24px; }
+  .step-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: #EFF6FF; color: #2563EB; font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;
+  }
+  .step-body h3 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .step-body p { font-size: 13px; color: #64748B; line-height: 1.6; }
+
+  /* The bookmarklet drag button */
+  .bm-wrap { display: flex; align-items: center; gap: 12px; margin: 6px 0 8px; }
+  .bm-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: #2563EB; color: white;
+    padding: 10px 18px; border-radius: 8px; font-size: 14px; font-weight: 600;
+    text-decoration: none; cursor: grab; white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(37,99,235,.3);
+    user-select: none;
+  }
+  .bm-btn:active { cursor: grabbing; }
+  .bm-hint { font-size: 12px; color: #94A3B8; }
+
+  .divider { height: 1px; background: #E2E8F0; margin: 24px 0; }
+
+  .compat { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .compat-badge {
+    padding: 3px 10px; border-radius: 20px; font-size: 12px;
+    background: #F1F5F9; color: #475569; border: 1px solid #E2E8F0;
+  }
+
+  .tip {
+    background: #FFF7ED; border: 1px solid #FED7AA; border-radius: 8px;
+    padding: 12px 14px; font-size: 13px; color: #92400E; line-height: 1.6;
+    margin-top: 16px;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+    </div>
+    <span class="logo-text">Pocket Brain</span>
+  </div>
+
+  <h1>Bookmarklet 安装</h1>
+  <p class="sub">一次安装，Safari / Firefox / Edge / Arc 全都能用。<br>在任何浏览器打开任意页面，点一下书签就能收藏。</p>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <h3>把下面的按钮拖到书签栏</h3>
+      <div class="bm-wrap">
+        <a class="bm-btn" id="bm-link" href="#" title="拖我到书签栏">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+          存入 Pocket Brain
+        </a>
+        <span class="bm-hint">← 拖到浏览器书签栏</span>
+      </div>
+      <p>如果书签栏不显示：<strong>Cmd+Shift+B</strong>（Mac）或 <strong>Ctrl+Shift+B</strong>（Windows）</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <h3>使用方法</h3>
+      <p>在任意页面点击书签栏中的「存入 Pocket Brain」，会自动跳转到 Pocket Brain 并弹出收藏窗口，标题和链接已自动填好。</p>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div>
+    <div style="font-size:13px;font-weight:600;margin-bottom:6px;">兼容浏览器</div>
+    <div class="compat">
+      <span class="compat-badge">✓ Safari</span>
+      <span class="compat-badge">✓ Chrome</span>
+      <span class="compat-badge">✓ Firefox</span>
+      <span class="compat-badge">✓ Edge</span>
+      <span class="compat-badge">✓ Arc</span>
+      <span class="compat-badge">✓ Brave</span>
+    </div>
+  </div>
+
+  <div class="tip">
+    💡 Safari on iPhone 也能用：先在 Mac Safari 安装书签，开启 iCloud 书签同步后 iPhone Safari 也会同步过去。
+  </div>
+</div>
+
+<script>
+// ── Build the bookmarklet URL ──
+// Replace APP_URL with your deployed address
+const APP_URL = window.location.origin + window.location.pathname.replace('bookmarklet.html', 'index.html');
+
+const code = `(function(){
+  var u=encodeURIComponent(location.href);
+  var t=encodeURIComponent(document.title);
+  var type='article';
+  if(/youtube|youtu\.be|vimeo|bilibili/.test(location.href)) type='video';
+  if(/twitter|x\.com|weibo/.test(location.href)) type='tweet';
+  if(/spotify|podcast|\.mp3/.test(location.href)) type='audio';
+  window.open('${APP_URL}?url='+u+'&title='+t+'&type='+type,'_self');
+})();`;
+
+document.getElementById('bm-link').href = 'javascript:' + code;
+</script>
+</body>
+</html>
