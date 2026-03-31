@@ -29,8 +29,13 @@ export default function App() {
   useEffect(() => {
     Promise.all([fetchItems(), fetchFolders()])
       .then(([fetchedItems, fetchedFolders]) => {
+        console.log('[PB] items loaded:', fetchedItems.length, fetchedItems)
+        console.log('[PB] folders loaded:', fetchedFolders.length)
         setItems(fetchedItems)
         setFolders(fetchedFolders)
+      })
+      .catch(err => {
+        console.error('[PB] load error:', err)
       })
       .finally(() => setLoading(false))
   }, [])
