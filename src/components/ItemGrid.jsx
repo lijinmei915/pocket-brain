@@ -139,7 +139,7 @@ const SECTION_TITLES = {
 export default function ItemGrid({ items, folders, loading, selectedFolder, onUpdate, onDelete, onAdd, onEdit, onMobileMenuOpen }) {
   const [deleteId, setDeleteId] = useState(null)
   const [moveItem, setMoveItem] = useState(null)
-  const [moveFolderId, setMoveFolderId] = useState('')
+  const [moveFolderId, setMoveFolderId] = useState('__inbox__')
 
   const sectionTitle = SECTION_TITLES[selectedFolder]
     || folders.find(f => f.id === selectedFolder)?.name
@@ -154,12 +154,12 @@ export default function ItemGrid({ items, folders, loading, selectedFolder, onUp
 
   function openMove(item) {
     setMoveItem(item)
-    setMoveFolderId(item.folderId || '')
+    setMoveFolderId(item.folderId || '__inbox__')
   }
 
   async function handleMove() {
     if (moveItem) {
-      await onUpdate(moveItem.id, { folderId: moveFolderId || null })
+      await onUpdate(moveItem.id, { folderId: moveFolderId === '__inbox__' ? null : moveFolderId })
     }
     setMoveItem(null)
   }
@@ -250,7 +250,7 @@ export default function ItemGrid({ items, folders, loading, selectedFolder, onUp
                 <SelectValue placeholder="收件箱" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">收件箱</SelectItem>
+                <SelectItem value="__inbox__">收件箱</SelectItem>
                 {folderOptions.map(opt => (
                   <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                 ))}

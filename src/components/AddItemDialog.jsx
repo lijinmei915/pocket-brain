@@ -14,6 +14,8 @@ const TYPES = [
   { value: 'other',   label: '其他' },
 ]
 
+const INBOX = '__inbox__'
+
 function guessType(url) {
   const u = (url || '').toLowerCase()
   if (/youtube\.com|youtu\.be|vimeo\.com|bilibili\.com/.test(u)) return 'video'
@@ -22,13 +24,12 @@ function guessType(url) {
   return 'article'
 }
 
-// editItem: null = 新建模式, {id, url, title, type, note, folderId} = 编辑模式
 export default function AddItemDialog({ open, onOpenChange, folders, onSave, defaultFolderId, editItem }) {
   const [url, setUrl] = useState('')
   const [title, setTitle] = useState('')
   const [type, setType] = useState('article')
   const [note, setNote] = useState('')
-  const [folderId, setFolderId] = useState('')
+  const [folderId, setFolderId] = useState(INBOX)
   const [saving, setSaving] = useState(false)
 
   const isEdit = !!editItem
@@ -40,13 +41,13 @@ export default function AddItemDialog({ open, onOpenChange, folders, onSave, def
       setTitle(editItem.title || '')
       setType(editItem.type || 'article')
       setNote(editItem.note || '')
-      setFolderId(editItem.folderId || '')
+      setFolderId(editItem.folderId || INBOX)
     } else {
       setUrl('')
       setTitle('')
       setType('article')
       setNote('')
-      setFolderId(defaultFolderId || '')
+      setFolderId(defaultFolderId || INBOX)
     }
   }, [open, editItem, defaultFolderId])
 
@@ -65,7 +66,7 @@ export default function AddItemDialog({ open, onOpenChange, folders, onSave, def
         title: title.trim() || url.trim(),
         type,
         note: note.trim(),
-        folderId: folderId || null,
+        folderId: folderId === INBOX ? null : folderId,
       })
     } finally {
       setSaving(false)
@@ -82,8 +83,7 @@ export default function AddItemDialog({ open, onOpenChange, folders, onSave, def
       ]
     })
   }
-  const rootFolders = folders.filter(f => !f.parentId)
-  const folderOptions = buildOptions(rootFolders)
+  const folderOptions = buildOptions(folders.filter(f => !f.parentId))
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -147,10 +147,10 @@ export default function AddItemDialog({ open, onOpenChange, folders, onSave, def
             <label className="text-sm font-medium">存入文件夹</label>
             <Select value={folderId} onValueChange={setFolderId}>
               <SelectTrigger>
-                <SelectValue placeholder="收件箱（稍后整理）" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">收件箱（稍后整理）</SelectItem>
+                <SelectItem value={INBOX}>收件箱（稍后整理）</SelectItem>
                 {folderOptions.map(opt => (
                   <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                 ))}
