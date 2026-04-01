@@ -31,7 +31,7 @@ export async function createItem(item) {
   const data = await rest('/items?select=*', {
     method: 'POST',
     headers: { Prefer: 'return=representation' },
-    body: JSON.stringify(itemToDb(item)),
+    body: JSON.stringify({ id: crypto.randomUUID(), ...itemToDb(item) }),
   })
   return itemFromDb(Array.isArray(data) ? data[0] : data)
 }
