@@ -43,6 +43,7 @@ export default function App() {
   // Chrome extension autosave via URL params
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
+    console.log('[PB] autosave check:', window.location.search, 'autosave=', params.get('autosave'))
     if (params.get('autosave') === '1') {
       const url = params.get('url') || ''
       const title = params.get('title') || url
