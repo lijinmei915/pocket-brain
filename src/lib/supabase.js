@@ -1,83 +1,86 @@
-import { createClient } from '@supabase/supabase-js'
-
 const SUPABASE_URL = 'https://clujgrcidguwgufqekve.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsdWpncmNpZGd1d2d1ZnFla3ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4ODYxMDcsImV4cCI6MjA5MDQ2MjEwN30.4Qt8FKLZ8L3Sh_dFtp06Yb3zRuM3Lq3Lc-NnYsYpa2I'
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
+const HEADERS = {
+  apikey: SUPABASE_KEY,
+  Authorization: 'Bearer ' + SUPABASE_KEY,
+  'Content-Type': 'application/json',
+}
+
+async function rest(path, options = {}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
+    ...options,
+    headers: { ...HEADERS, ...options.headers },
+  })
+  if (!res.ok) {
+    const msg = await res.text()
+    throw new Error(`Supabase error ${res.status}: ${msg}`)
+  }
+  // 204 No Content
+  if (res.status === 204) return null
+  return res.json()
+}
 
 // ── Items ──
 export async function fetchItems() {
-  const { data, error } = await supabase
-    .from('items')
-    .select('*')
-    .order('createdat', { ascending: false })
-  if (error) throw error
+  const data = await rest('/items?select=*&order=createdat.desc')
   return (data || []).map(itemFromDb)
 }
 
 export async function createItem(item) {
-  const { data, error } = await supabase
-    .from('items')
-    .insert([itemToDb(item)])
-    .select()
-    .single()
-  if (error) throw error
-  return itemFromDb(data)
+  const data = await rest('/items?select=*', {
+    method: 'POST',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify(itemToDb(item)),
+  })
+  return itemFromDb(Array.isArray(data) ? data[0] : data)
 }
 
 export async function updateItem(id, changes) {
-  const { data, error } = await supabase
-    .from('items')
-    .update(itemToDb(changes))
-    .eq('id', id)
-    .select()
-    .single()
-  if (error) throw error
-  return itemFromDb(data)
+  const data = await rest(`/items?id=eq.${id}&select=*`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify(itemToDb(changes)),
+  })
+  return itemFromDb(Array.isArray(data) ? data[0] : data)
 }
 
 export async function deleteItem(id) {
-  const { error } = await supabase.from('items').delete().eq('id', id)
-  if (error) throw error
+  await rest(`/items?id=eq.${id}`, { method: 'DELETE' })
 }
 
 // ── Folders ──
 export async function fetchFolders() {
-  const { data, error } = await supabase
-    .from('folders')
-    .select('*')
-    .order('createdat', { ascending: true })
-  if (error) throw error
+  const data = await rest('/folders?select=*&order=createdat.asc')
   return (data || []).map(folderFromDb)
 }
 
 export async function createFolder(name, parentId = null) {
-  const { data, error } = await supabase
-    .from('folders')
-    .insert([{ name, parentid: parentId || null }])
-    .select()
-    .single()
-  if (error) throw error
-  return folderFromDb(data)
+  const data = await rest('/folders?select=*', {
+    method: 'POST',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ name, parentid: parentId || null }),
+  })
+  return folderFromDb(Array.isArray(data) ? data[0] : data)
 }
 
 export async function renameFolder(id, name) {
-  const { data, error } = await supabase
-    .from('folders')
-    .update({ name })
-    .eq('id', id)
-    .select()
-    .single()
-  if (error) throw error
-  return folderFromDb(data)
+  const data = await rest(`/folders?id=eq.${id}&select=*`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ name }),
+  })
+  return folderFromDb(Array.isArray(data) ? data[0] : data)
 }
 
 export async function deleteFolder(id) {
   // Move items in this folder to inbox
-  await supabase.from('items').update({ folderid: null }).eq('folderid', id)
-  // Delete sub-folders recursively handled by cascade or manually
-  const { error } = await supabase.from('folders').delete().eq('id', id)
-  if (error) throw error
+  await rest(`/items?folderid=eq.${id}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ folderid: null }),
+  })
+  await rest(`/folders?id=eq.${id}`, { method: 'DELETE' })
 }
 
 // ── DB mapping ──
