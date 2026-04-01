@@ -5,8 +5,11 @@ import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Inbox, BookOpen, Plus, Search, FolderOpen, Folder,
-  MoreHorizontal, Pencil, Trash2, FolderPlus, Brain, X
+  MoreHorizontal, Pencil, Trash2, FolderPlus, Brain, X, Bookmark
 } from 'lucide-react'
+
+const APP_URL = 'https://pocket-brain-blush.vercel.app'
+const BOOKMARKLET = `javascript:(function(){var u=encodeURIComponent(location.href),t=encodeURIComponent(document.title);window.open('${APP_URL}?autosave=1&url='+u+'&title='+t,'_blank')})();`
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -201,8 +204,18 @@ export default function Sidebar({ folders, items, selected, onSelect, onCreateFo
         </div>
       </ScrollArea>
 
-      <div className="px-4 py-3 border-t">
+      <div className="px-4 py-3 border-t space-y-2">
         <p className="text-xs text-muted-foreground">共 {allCount} 条收藏</p>
+        <a
+          href={BOOKMARKLET}
+          onClick={e => e.preventDefault()}
+          draggable
+          title="拖拽到浏览器书签栏，之后点一下就能保存当前页"
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary cursor-grab active:cursor-grabbing transition-colors select-none"
+        >
+          <Bookmark size={11} />
+          <span>📌 拖到书签栏</span>
+        </a>
       </div>
 
       {/* Dialogs */}
