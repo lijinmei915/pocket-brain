@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
@@ -79,6 +79,11 @@ function FolderItem({ folder, folders, items, selected, depth, onSelect, onRenam
 }
 
 export default function Sidebar({ folders, items, selected, onSelect, onCreateFolder, onRenameFolder, onDeleteFolder, search, onSearch, onAdd, mobileOpen, onMobileClose }) {
+  const bookmarkRef = useRef(null)
+  useEffect(() => {
+    if (bookmarkRef.current) bookmarkRef.current.setAttribute('href', BOOKMARKLET)
+  }, [])
+
   // Dialog states
   const [folderDialogOpen, setFolderDialogOpen] = useState(false)
   const [folderDialogMode, setFolderDialogMode] = useState('create')
@@ -207,7 +212,8 @@ export default function Sidebar({ folders, items, selected, onSelect, onCreateFo
       <div className="px-4 py-3 border-t space-y-2">
         <p className="text-xs text-muted-foreground">共 {allCount} 条收藏</p>
         <a
-          href={BOOKMARKLET}
+          ref={bookmarkRef}
+          href="#"
           onClick={e => e.preventDefault()}
           draggable
           title="拖拽到浏览器书签栏，之后点一下就能保存当前页"
