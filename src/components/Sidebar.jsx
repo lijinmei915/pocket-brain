@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 
 const APP_URL = 'https://pocket-brain-blush.vercel.app'
-const BOOKMARKLET = `javascript:(function(){var u=encodeURIComponent(location.href),t=encodeURIComponent(document.title);location.href='${APP_URL}?autosave=1&url='+u+'&title='+t})();`
+const BOOKMARKLET = `javascript:(function(){var u=encodeURIComponent(location.href),t=encodeURIComponent(document.title);var target='${APP_URL}?autosave=1&url='+u+'&title='+t;alert(target);location.href=target})();`
 import {
   DropdownMenu,
   DropdownMenuContent,
