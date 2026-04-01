@@ -1,5 +1,5 @@
-const SUPABASE_URL = 'https://clujgrcidguwgufqekve.supabase.co'
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsdWpncmNpZGd1d2d1ZnFla3ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4ODYxMDcsImV4cCI6MjA5MDQ2MjEwN30.4Qt8FKLZ8L3Sh_dFtp06Yb3zRuM3Lq3Lc-NnYsYpa2I'
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY
 
 const HEADERS = {
   apikey: SUPABASE_KEY,
