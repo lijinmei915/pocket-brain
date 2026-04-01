@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 
 const APP_URL = 'https://pocket-brain-blush.vercel.app'
-const BOOKMARKLET = `javascript:(function(){var u=encodeURIComponent(location.href),t=encodeURIComponent(document.title);var target='${APP_URL}?autosave=1&url='+u+'&title='+t;alert(target);location.href=target})();`
+const BOOKMARKLET = `javascript:(function(){var u=encodeURIComponent(location.href),t=encodeURIComponent(document.title);location.href='${APP_URL}?autosave=1&url='+u+'&title='+t})();`
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -88,6 +88,7 @@ export default function Sidebar({ folders, items, selected, onSelect, onCreateFo
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteTargetId, setDeleteTargetId] = useState(null)
+  const [bookmarkCopied, setBookmarkCopied] = useState(false)
 
   const inboxCount = items.filter(i => !i.folderId).length
   const allCount = items.length
@@ -209,12 +210,13 @@ export default function Sidebar({ folders, items, selected, onSelect, onCreateFo
         <button
           onClick={() => {
             navigator.clipboard.writeText(BOOKMARKLET)
-            alert('已复制！\n\n步骤：右键书签栏 → 添加网页 → 粘贴到网址栏 → 保存')
+            setBookmarkCopied(true)
+            setTimeout(() => setBookmarkCopied(false), 2000)
           }}
           className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
         >
           <Bookmark size={11} />
-          <span>📌 复制书签代码</span>
+          <span>{bookmarkCopied ? '✓ 已复制，粘贴到新书签的网址栏' : '📌 复制书签代码'}</span>
         </button>
       </div>
 
