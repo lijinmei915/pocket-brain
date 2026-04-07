@@ -264,7 +264,7 @@ export default function SaveForm({
 
         {/* ── 记录 tab ── */}
         {tab === 'note' && (
-          <div className="flex flex-col border border-input rounded-md overflow-hidden bg-background" style={{ height: '300px' }}>
+          <div className="flex flex-col border border-input rounded-md overflow-hidden bg-transparent" style={{ height: '300px' }}>
             <textarea
               placeholder="记录想法、摘录、代码片段…"
               value={content} maxLength={1000}
