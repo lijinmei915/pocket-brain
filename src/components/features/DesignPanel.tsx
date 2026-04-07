@@ -54,10 +54,8 @@ const TOKEN_SELECTORS = {
 
 // ── 工具函数 ───────────────────────────────────────────────────────────────
 function isDesignerMode() {
-  const isLocal = typeof window !== 'undefined' &&
+  return typeof window !== 'undefined' &&
     ['localhost', '127.0.0.1'].includes(window.location.hostname)
-  if (isLocal) return true
-  try { return localStorage.getItem('pb-designer') === '1' } catch { return false }
 }
 
 function applyTokens(designTokens: DesignTokens) {
