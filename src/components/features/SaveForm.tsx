@@ -223,6 +223,7 @@ export default function SaveForm({
             <div>
               <label className="text-sm font-medium block mb-1">链接 *</label>
               <Input
+                className="text-sm"
                 placeholder="https://..."
                 value={url}
                 onChange={e => handleUrlChange(e.target.value)}
@@ -232,6 +233,7 @@ export default function SaveForm({
             <div>
               <label className="text-sm font-medium block mb-1">标题</label>
               <Input
+                className="text-sm"
                 placeholder="留空则使用链接作为标题"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
@@ -361,7 +363,7 @@ export default function SaveForm({
             <textarea
               placeholder="添加备注…" value={note}
               onChange={e => setNote(e.target.value)} rows={3}
-              className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary"
+              className="w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary"
             />
           </div>
         )}
