@@ -15,6 +15,19 @@ const TYPES = [
   { value: 'other',   label: '其他',   icon: BookOpen,      cls: 'component-tag-other'   },
 ]
 
+const FILE_HINTS: { test: (f: File) => boolean; limit: number; message: string }[] = [
+  { test: f => f.type.startsWith('video/'), limit: 50, message: '视频超过 50MB，建议上传到视频平台后用链接收藏' },
+  { test: f => f.type.startsWith('audio/'), limit: 50, message: '音频超过 50MB，建议剪辑压缩后再上传' },
+  { test: f => f.type.startsWith('image/'), limit: 10, message: '图片超过 10MB，建议压缩后上传' },
+  { test: () => true,                        limit: 20, message: '文件超过 20MB，建议存到云盘后复制链接收藏' },
+]
+
+function getSingleFileHint(file: File): string | null {
+  const rule = FILE_HINTS.find(r => r.test(file))
+  if (!rule) return null
+  return file.size / (1024 * 1024) > rule.limit ? rule.message : null
+}
+
 const INBOX = '__inbox__'
 const TOTAL_LIMIT_MB = 20
 
@@ -45,7 +58,7 @@ function formatFileSize(bytes: number) {
 
 function getFileIcon(file: File) {
   if (file.type.startsWith('image/')) return Image
-  if (file.type.startsWith('audio/')) return Headphones
+  if (file.type.startsWith('audio/')) return Music
   if (file.type.startsWith('video/')) return VideoIcon
   return FileArchive
 }
@@ -59,6 +72,7 @@ export default function SavePage() {
 
   const [tab,      setTab]      = useState<'bookmark' | 'note' | 'file'>('bookmark')
   // 收藏
+  const [url,      setUrl]      = useState(initUrl)
   const [title,    setTitle]    = useState(initTitle)
   const [type,     setType]     = useState(guessType(initUrl))
   const [note,     setNote]     = useState('')
@@ -81,6 +95,11 @@ export default function SavePage() {
   const folderOptions = buildOptions(folders, folders.filter(f => !f.parentId))
   const totalSizeMB = files.reduce((sum, f) => sum + f.size / (1024 * 1024), 0)
   const overLimit = totalSizeMB > TOTAL_LIMIT_MB
+
+  function handleUrlChange(val: string) {
+    setUrl(val)
+    setType(guessType(val))
+  }
 
   function addFiles(incoming: File[]) {
     setFiles(prev => {
@@ -115,13 +134,12 @@ export default function SavePage() {
           folderId: folderId === INBOX ? null : folderId,
         })
       } else if (tab === 'file') {
-        // 上传逻辑待接入 Supabase Storage
         setStatus('form'); return
       } else {
-        if (!initUrl.trim()) { setStatus('form'); return }
+        if (!url.trim()) { setStatus('form'); return }
         await createItem({
-          url: initUrl.trim(),
-          title: title.trim() || initTitle || initUrl,
+          url: url.trim(),
+          title: title.trim() || url,
           type, note: note.trim(),
           folderId: folderId === INBOX ? null : folderId,
         })
@@ -137,7 +155,7 @@ export default function SavePage() {
     ? content.trim().length > 0
     : tab === 'file'
       ? false
-      : !!initUrl.trim()
+      : url.trim().length > 0
 
   if (status === 'done') return (
     <div className="flex flex-col items-center justify-center h-screen gap-3 bg-background">
@@ -179,23 +197,28 @@ export default function SavePage() {
       </div>
 
       {/* Form */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
 
         {/* ── 收藏 tab ── */}
         {tab === 'bookmark' && (
           <>
             <div>
-              <p className="text-xs text-muted-foreground mb-1">链接</p>
-              <p className="text-xs truncate bg-muted rounded px-2 py-1.5">{initUrl || '（未获取到链接）'}</p>
+              <label className="text-sm font-medium block mb-1">链接 *</label>
+              <Input
+                placeholder="https://..."
+                value={url}
+                onChange={e => handleUrlChange(e.target.value)}
+                autoFocus={!initUrl}
+              />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground block mb-1">标题</label>
+              <label className="text-sm font-medium block mb-1">标题</label>
               <Input value={title} onChange={e => setTitle(e.target.value)}
-                placeholder="留空则使用链接作为标题" className="text-sm h-8" />
+                placeholder="留空则使用链接作为标题" />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground block mb-1">类型</label>
-              <div className="flex gap-1.5 flex-wrap">
+              <label className="text-sm font-medium block mb-1">类型</label>
+              <div className="flex gap-2 flex-wrap">
                 {TYPES.map(t => {
                   const Icon = t.icon
                   const selected = type === t.value
@@ -213,24 +236,18 @@ export default function SavePage() {
                 })}
               </div>
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground block mb-1">备注</label>
-              <textarea value={note} onChange={e => setNote(e.target.value)}
-                placeholder="添加备注…" rows={2}
-                className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary" />
-            </div>
           </>
         )}
 
         {/* ── 记录 tab ── */}
         {tab === 'note' && (
-          <div className="flex flex-col border border-input rounded-md overflow-hidden bg-background" style={{ height: '200px' }}>
+          <div className="flex flex-col border border-input rounded-md overflow-hidden bg-background" style={{ height: '300px' }}>
             <textarea placeholder="记录想法、摘录、代码片段…"
               value={content} maxLength={1000}
               onChange={e => setContent(e.target.value)} autoFocus
               className="flex-1 resize-none overflow-y-auto p-3 text-sm outline-none bg-transparent placeholder:text-muted-foreground"
             />
-            <div className="border-t border-input px-3 py-1 shrink-0 text-right">
+            <div className="border-t border-input px-3 py-1.5 shrink-0 text-right">
               <span className={cn('text-[11px]', content.length >= 1000 ? 'text-destructive' : 'text-muted-foreground')}>
                 {content.length} / 1000
               </span>
@@ -255,36 +272,42 @@ export default function SavePage() {
             >
               <Upload size={18} className="text-muted-foreground" />
               <p className="text-sm text-muted-foreground">点击、拖拽或粘贴截图</p>
-              <p className="text-xs text-muted-foreground/60">总计不超过 {TOTAL_LIMIT_MB}MB</p>
+              <p className="text-xs text-muted-foreground/60">图片、PDF、音频、视频等，总计不超过 {TOTAL_LIMIT_MB}MB</p>
             </div>
+
             {files.length > 0 && (
               <div className="space-y-1.5">
                 {files.map((f, i) => {
                   const Icon = getFileIcon(f)
+                  const hint = getSingleFileHint(f)
                   return (
-                    <div key={i} className="flex items-center gap-2.5 px-3 py-2 border border-input rounded-md bg-muted/40">
-                      <Icon size={14} className="text-muted-foreground shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">{f.name}</p>
-                        <p className="text-[10px] text-muted-foreground">{formatFileSize(f.size)}</p>
+                    <div key={i} className="space-y-1">
+                      <div className="flex items-center gap-2.5 px-3 py-2 border border-input rounded-md bg-muted/40">
+                        <Icon size={16} className="text-muted-foreground shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate">{f.name}</p>
+                          <p className="text-[10px] text-muted-foreground">{formatFileSize(f.size)}</p>
+                        </div>
+                        <button onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))}
+                          className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0">
+                          <X size={12} />
+                        </button>
                       </div>
-                      <button onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))}
-                        className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
-                        <X size={12} />
-                      </button>
+                      {hint && <p className="text-[11px] text-amber-600 px-1">{hint}</p>}
                     </div>
                   )
                 })}
-                <div className={cn('flex justify-end text-[11px]', overLimit ? 'text-destructive' : 'text-muted-foreground')}>
-                  {overLimit && <span className="mr-auto">总大小超过 {TOTAL_LIMIT_MB}MB，请移除部分文件</span>}
+                <div className={cn('flex items-center justify-between px-1 pt-1 text-[11px]', overLimit ? 'text-destructive' : 'text-muted-foreground')}>
+                  <span>{overLimit ? `总大小超过 ${TOTAL_LIMIT_MB}MB，请移除部分文件` : ''}</span>
                   <span>{totalSizeMB.toFixed(1)} / {TOTAL_LIMIT_MB} MB</span>
                 </div>
               </div>
             )}
+
             <div>
-              <label className="text-xs text-muted-foreground block mb-1">标题</label>
+              <label className="text-sm font-medium block mb-1">标题</label>
               <Input value={fileTitle} onChange={e => setFileTitle(e.target.value)}
-                placeholder="留空则使用文件名" className="text-sm h-8" />
+                placeholder="留空则使用文件名" />
             </div>
             <p className="text-xs text-muted-foreground bg-muted/60 rounded-md px-3 py-2">
               文件上传功能即将开放，当前仅支持选择预览。
@@ -294,9 +317,9 @@ export default function SavePage() {
 
         {/* ── 共享：存入文件夹 ── */}
         <div>
-          <label className="text-xs text-muted-foreground block mb-1">存入文件夹</label>
+          <label className="text-sm font-medium block mb-1">存入文件夹</label>
           <Select value={folderId} onValueChange={setFolderId}>
-            <SelectTrigger className="h-8 text-sm">
+            <SelectTrigger>
               <SelectValue>
                 {folderId === INBOX ? '稍后整理' : folderOptions.find(o => o.value === folderId)?.name ?? ''}
               </SelectValue>
@@ -309,11 +332,22 @@ export default function SavePage() {
             </SelectContent>
           </Select>
         </div>
+
+        {/* 备注 — 仅收藏 tab */}
+        {tab === 'bookmark' && (
+          <div>
+            <label className="text-sm font-medium block mb-1">备注</label>
+            <textarea value={note} onChange={e => setNote(e.target.value)}
+              placeholder="添加备注…" rows={3}
+              className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary" />
+          </div>
+        )}
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-3 border-t shrink-0">
-        <Button onClick={handleSave} disabled={!canSave || status === 'saving' || overLimit} className="w-full h-8 text-sm">
+      <div className="px-4 py-3 border-t shrink-0 flex gap-2">
+        <Button variant="outline" className="flex-1 h-9 text-sm" onClick={() => window.close()}>取消</Button>
+        <Button onClick={handleSave} disabled={!canSave || status === 'saving' || overLimit} className="flex-1 h-9 text-sm">
           {status === 'saving' ? <><Loader2 size={14} className="animate-spin mr-2" />保存中…</> : '保存'}
         </Button>
       </div>
