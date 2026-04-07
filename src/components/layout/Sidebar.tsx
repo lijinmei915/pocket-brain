@@ -4,7 +4,7 @@ import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Inbox, BookOpen, Search, FolderOpen, Folder,
-  MoreHorizontal, Pencil, Trash2, FolderPlus, X, Bookmark
+  MoreHorizontal, Pencil, Trash2, FolderPlus, X
 } from 'lucide-react'
 import { Logo } from '@/components/ui/Logo'
 
@@ -199,19 +199,8 @@ export default function Sidebar({ folders, items, selected, onSelect, onCreateFo
         </div>
       </ScrollArea>
 
-      <div className="px-4 py-3 border-t space-y-2">
+      <div className="px-4 py-3 border-t">
         <p className="text-xs text-muted-foreground">共 {allCount} 条收藏</p>
-        <button
-          onClick={() => {
-            navigator.clipboard.writeText(BOOKMARKLET)
-            setBookmarkCopied(true)
-            setTimeout(() => setBookmarkCopied(false), 2000)
-          }}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
-        >
-          <Bookmark size={11} />
-          <span>{bookmarkCopied ? '✓ 已复制' : '📌 复制书签代码'}</span>
-        </button>
       </div>
 
       {/* Dialogs */}
