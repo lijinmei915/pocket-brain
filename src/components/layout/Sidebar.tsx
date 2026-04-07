@@ -1,15 +1,14 @@
 import { useState } from 'react'
+import GetAppDialog from '@/components/features/GetAppDialog'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Inbox, BookOpen, Search, FolderOpen, Folder,
-  MoreHorizontal, Pencil, Trash2, FolderPlus, X
+  MoreHorizontal, Pencil, Trash2, FolderPlus, X, Download
 } from 'lucide-react'
 import { Logo } from '@/components/ui/Logo'
 
-const APP_URL = 'https://pocket-brain-blush.vercel.app'
-const BOOKMARKLET = `javascript:(function(){var u=encodeURIComponent(location.href),t=encodeURIComponent(document.title);window.open('${APP_URL}/save?url='+u+'&title='+t,'pbsave','width=360,height=560,toolbar=0,menubar=0,scrollbars=1')})();`
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -88,7 +87,7 @@ export default function Sidebar({ folders, items, selected, onSelect, onCreateFo
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteTargetId, setDeleteTargetId] = useState(null)
-  const [bookmarkCopied, setBookmarkCopied] = useState(false)
+  const [getAppOpen, setGetAppOpen] = useState(false)
 
   const inboxCount = items.filter(i => !i.folderId).length
   const allCount = items.length
@@ -199,11 +198,18 @@ export default function Sidebar({ folders, items, selected, onSelect, onCreateFo
         </div>
       </ScrollArea>
 
-      <div className="px-4 py-3 border-t">
+      <div className="px-4 py-3 border-t flex items-center justify-between">
         <p className="text-xs text-muted-foreground">共 {allCount} 条收藏</p>
+        <button
+          onClick={() => setGetAppOpen(true)}
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+        >
+          <Download size={11} />获取应用
+        </button>
       </div>
 
       {/* Dialogs */}
+      <GetAppDialog open={getAppOpen} onOpenChange={setGetAppOpen} />
       <FolderDialog
         open={folderDialogOpen}
         onOpenChange={setFolderDialogOpen}
