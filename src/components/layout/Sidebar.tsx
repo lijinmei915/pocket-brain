@@ -4,8 +4,9 @@ import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Inbox, BookOpen, Search, FolderOpen, Folder,
-  MoreHorizontal, Pencil, Trash2, FolderPlus, Brain, X, Bookmark
+  MoreHorizontal, Pencil, Trash2, FolderPlus, X, Bookmark
 } from 'lucide-react'
+import { Logo } from '@/components/ui/Logo'
 
 const APP_URL = 'https://pocket-brain-blush.vercel.app'
 const BOOKMARKLET = `javascript:(function(){var u=encodeURIComponent(location.href),t=encodeURIComponent(document.title);window.open('${APP_URL}/save?url='+u+'&title='+t,'pbsave','width=360,height=560,toolbar=0,menubar=0,scrollbars=1')})();`
@@ -137,9 +138,7 @@ export default function Sidebar({ folders, items, selected, onSelect, onCreateFo
     <>
       {/* Logo */}
       <div className="flex items-center gap-2 px-4 border-b h-14">
-        <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-          <Brain size={14} className="text-primary-foreground" />
-        </div>
+        <Logo size={28} />
         <span className="font-semibold text-sm">Pocket Brain</span>
         {/* Mobile close button */}
         <button

@@ -45,7 +45,7 @@ function ItemCard({ item, folders, onDelete, onEdit, onMove, folderOptions = [] 
   const TypeIcon = typeConf.icon
   const favicon = getFavicon(item.url)
 
-  const date = item.createdAt ? new Date(item.createdAt).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }) : ''
+  const date = item.createdAt ? new Date(item.createdAt).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : ''
 
   return (
     <div
@@ -196,7 +196,7 @@ export default function ItemGrid({ items, folders, loading, selectedFolder, onUp
           )}
         </div>
         <Button onClick={onAdd} size="sm" className="gap-1.5 h-8 text-xs">
-          <Plus size={13} /> 新建收藏
+          <Plus size={13} /> 添加
         </Button>
       </div>
 

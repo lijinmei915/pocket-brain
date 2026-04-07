@@ -207,7 +207,7 @@ export default function ItemDetailPage() {
   const TypeIcon = typeConf.icon
   const favicon = item.url ? getFavicon(item.url) : null
   const date = item.createdAt
-    ? new Date(item.createdAt).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
+    ? new Date(item.createdAt).toLocaleString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
     : ''
   const folder = folders.find(f => f.id === item.folderId)
   const isNote = item.type === 'note'
