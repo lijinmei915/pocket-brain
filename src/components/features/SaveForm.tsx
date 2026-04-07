@@ -330,7 +330,7 @@ export default function SaveForm({
 
             <div>
               <label className="text-sm font-medium block mb-1">标题</label>
-              <Input placeholder="留空则使用文件名" value={fileTitle} onChange={e => setFileTitle(e.target.value)} />
+              <Input className="text-sm" placeholder="留空则使用文件名" value={fileTitle} onChange={e => setFileTitle(e.target.value)} />
             </div>
             <p className="text-xs text-muted-foreground bg-muted/60 rounded-md px-3 py-2">
               文件上传功能即将开放，当前仅支持选择预览。
