@@ -3,165 +3,32 @@
 <head>
   <meta charset="utf-8">
   <style>
-    :root {
-      --background:       #FAFAFA;
-      --foreground:       #262626;
-      --muted-foreground: #8C8C8C;
-      --border:           #E8E8E8;
-      --primary:          #333333;
-      --primary-fg:       #ffffff;
-      --destructive:      #dc2626;
-      --muted:            #F2F2F2;
-      --radius:           6px;
-    }
-
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      width: 300px;
+      width: 200px;
+      height: 60px;
       font-family: -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 13px;
-      color: var(--foreground);
-      background: var(--background);
-    }
-
-    .header {
-      padding: 10px 14px;
-      border-bottom: 1px solid var(--border);
-      font-size: 14px;
-      font-weight: 600;
+      color: #8C8C8C;
+      background: #FAFAFA;
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 8px;
     }
-
-    .form { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
-
-    .field { display: flex; flex-direction: column; gap: 4px; }
-    .field label { font-size: 11px; color: var(--muted-foreground); font-weight: 500; }
-    .field input,
-    .field select,
-    .field textarea {
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 6px 8px;
-      font-size: 13px;
-      outline: none;
-      width: 100%;
-      color: var(--foreground);
-      background: #fff;
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid #E8E8E8;
+      border-top-color: #333;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
     }
-    .field input:focus,
-    .field select:focus,
-    .field textarea:focus { border-color: var(--primary); }
-    .field textarea { resize: none; height: 52px; }
-
-    .url-text {
-      font-size: 11px;
-      color: var(--muted-foreground);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      background: var(--muted);
-      border-radius: var(--radius);
-      padding: 5px 8px;
-    }
-
-    /* 类型 tag 按钮 */
-    .type-btns { display: flex; gap: 6px; flex-wrap: wrap; }
-    .type-btn {
-      display: inline-flex; align-items: center; gap: 3px;
-      padding: 3px 8px; border-radius: 4px; border: none;
-      font-size: 11px; font-weight: 500; cursor: pointer;
-      background: var(--muted); color: var(--muted-foreground);
-      transition: opacity .15s;
-    }
-    .type-btn:hover { opacity: .8; }
-    .type-btn.active[data-type="article"] { background: #ecfdf5; color: #065f46; }
-    .type-btn.active[data-type="video"]   { background: #fff7ed; color: #9a3412; }
-    .type-btn.active[data-type="audio"]   { background: #faf5ff; color: #6b21a8; }
-    .type-btn.active[data-type="tweet"]   { background: #eff6ff; color: #1e40af; }
-    .type-btn.active[data-type="other"]   { background: #f8fafc; color: #334155; }
-
-    .btn {
-      background: var(--primary);
-      color: var(--primary-fg);
-      border: none;
-      border-radius: var(--radius);
-      padding: 8px;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      width: 100%;
-      margin-top: 2px;
-    }
-    .btn:hover { opacity: 0.9; }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    .success {
-      padding: 24px 14px;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .success .icon { font-size: 28px; }
-    .success .msg { font-weight: 600; }
-    .success a { color: var(--primary); font-size: 12px; text-decoration: none; }
-
-    .loading { padding: 24px 14px; text-align: center; color: var(--muted-foreground); }
-    .error-msg { font-size: 11px; color: var(--destructive); }
   </style>
 </head>
 <body>
-  <div class="header">
-    <svg width="22" height="22" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M166.662 16.668C173.292 16.668 179.651 19.302 184.34 23.9902C189.028 28.6786 191.662 35.0376 191.662 41.668V91.668C191.662 115.978 182.005 139.293 164.815 156.483C147.625 173.673 124.31 183.33 100 183.33C75.6896 183.33 52.3746 173.673 35.1846 156.483C17.9945 139.293 8.33789 115.978 8.33789 91.668V41.668C8.33789 35.0376 10.9717 28.6786 15.6602 23.9902C20.3485 19.3019 26.7076 16.668 33.3379 16.668H166.662Z" fill="black" fill-opacity="0.9"/><path d="M88.4221 107.42H71.3159C69.0825 107.42 67.5419 105.185 68.3366 103.099L85.3345 58.4824C85.5645 57.8788 85.9724 57.3593 86.5042 56.9927C87.0361 56.6261 87.6668 56.4298 88.3127 56.4297H116.996C119.259 56.4297 120.802 58.7226 119.948 60.8189L110.05 85.1119H128.682C131.423 85.1119 132.885 88.3419 131.077 90.401L85.3961 142.453C83.1755 144.984 79.0583 142.791 79.92 139.536L88.4221 107.42Z" fill="white"/></svg>
-    Pocket Brain
-  </div>
-
-  <div id="loading" class="loading">加载中...</div>
-
-  <div id="form-view" class="form" style="display:none">
-    <div class="field">
-      <label>标题</label>
-      <input type="text" id="title" />
-    </div>
-    <div class="field">
-      <label>链接</label>
-      <div class="url-text" id="url-display"></div>
-    </div>
-    <div class="field">
-      <label>类型</label>
-      <div class="type-btns">
-        <button class="type-btn" data-type="article">文章</button>
-        <button class="type-btn" data-type="video">视频</button>
-        <button class="type-btn" data-type="audio">音频</button>
-        <button class="type-btn" data-type="tweet">帖子</button>
-        <button class="type-btn" data-type="other">其他</button>
-      </div>
-    </div>
-    <div class="field">
-      <label>存入文件夹</label>
-      <select id="folder"></select>
-    </div>
-    <div class="field">
-      <label>备注（可选）</label>
-      <textarea id="note" placeholder="添加备注..."></textarea>
-    </div>
-    <div id="error-msg" class="error-msg" style="display:none"></div>
-    <button class="btn" id="save-btn">保存</button>
-  </div>
-
-  <div id="success-view" class="success" style="display:none">
-    <div class="icon">
-      <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="10" fill="#059669"/>
-        <polyline points="7 13 10.5 16.5 17 9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    </div>
-    <div class="msg">已保存</div>
-    <a href="https://pocket-brain-blush.vercel.app" target="_blank">在 Pocket Brain 中查看 →</a>
-  </div>
-
+  <div class="spinner"></div>
+  <span>正在打开…</span>
   <script src="popup.js"></script>
 </body>
 </html>
