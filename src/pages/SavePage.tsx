@@ -95,7 +95,7 @@ export default function SavePage() {
       {/* Header */}
       <div className="flex items-center gap-2 px-4 h-12 border-b shrink-0">
         <Logo size={24} />
-        <span className="text-sm font-semibold">Pocket Brain</span>
+        <span className="text-base font-semibold">Pocket Brain</span>
       </div>
 
       {/* Form */}

@@ -4,7 +4,17 @@
   "version": "1.0",
   "description": "一键保存当前页面到 Pocket Brain",
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon-192.png",
+      "48": "icon-192.png",
+      "128": "icon-512.png"
+    }
+  },
+  "icons": {
+    "16": "icon-192.png",
+    "48": "icon-192.png",
+    "128": "icon-512.png"
   },
   "permissions": ["activeTab"],
   "host_permissions": [

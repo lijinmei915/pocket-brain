@@ -15,10 +15,23 @@ function guessType(url) {
 }
 
 async function fetchFolders() {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/folders?select=id,name&order=createdat.asc`, { headers: HEADERS })
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/folders?select=id,name,parentid&order=createdat.asc`, { headers: HEADERS })
   if (!res.ok) return []
   return res.json()
 }
+
+function buildFolderOptions(folders, list, depth = 0) {
+  return list.flatMap(f => {
+    const prefix = depth > 0 ? '\u00a0\u00a0'.repeat(depth) + '└ ' : ''
+    const children = folders.filter(c => c.parentid === f.id)
+    return [
+      `<option value="${f.id}">${prefix}${f.name}</option>`,
+      ...buildFolderOptions(folders, children, depth + 1),
+    ]
+  })
+}
+
+let selectedType = 'article'
 
 async function init() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
@@ -26,14 +39,24 @@ async function init() {
   const title = tab.title || url
   const folders = await fetchFolders()
 
-  // 填入表单
   document.getElementById('title').value = title
   document.getElementById('url-display').textContent = url
-  document.getElementById('type').value = guessType(url)
 
-  const folderSelect = document.getElementById('folder')
-  folderSelect.innerHTML = '<option value="">收件箱</option>' +
-    folders.map(f => `<option value="${f.id}">${f.name}</option>`).join('')
+  // 类型 tag 按钮
+  selectedType = guessType(url)
+  document.querySelectorAll('.type-btn').forEach(btn => {
+    if (btn.dataset.type === selectedType) btn.classList.add('active')
+    btn.addEventListener('click', () => {
+      selectedType = btn.dataset.type
+      document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+    })
+  })
+
+  // 文件夹（树状）
+  const roots = folders.filter(f => !f.parentid)
+  document.getElementById('folder').innerHTML =
+    '<option value="">稍后整理</option>' + buildFolderOptions(folders, roots).join('')
 
   document.getElementById('loading').style.display = 'none'
   document.getElementById('form-view').style.display = 'flex'
@@ -53,7 +76,7 @@ async function init() {
           id: crypto.randomUUID(),
           title: document.getElementById('title').value || title,
           url,
-          type: document.getElementById('type').value,
+          type: selectedType,
           note: document.getElementById('note').value,
           folderid: document.getElementById('folder').value || null,
           createdat: Date.now(),
