@@ -1,0 +1,352 @@
+import { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import Placeholder from '@tiptap/extension-placeholder'
+import {
+  ArrowLeft, ExternalLink, Pencil, Trash2,
+  FileText, Video, Headphones, MessageCircle, BookOpen, PenLine, FolderOpen,
+  Bold, Italic, Strikethrough, List, ListOrdered, Heading2,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { fetchItem, fetchFolders, updateItem, deleteItem } from '@/utils/supabase'
+import ConfirmDialog from '@/components/features/ConfirmDialog'
+import { cn } from '@/lib/utils'
+
+const TYPE_CONFIG = {
+  article: { icon: FileText,      label: '文章',   cls: 'component-tag-article' },
+  video:   { icon: Video,         label: '视频',   cls: 'component-tag-video'   },
+  audio:   { icon: Headphones,    label: '音频',   cls: 'component-tag-audio'   },
+  tweet:   { icon: MessageCircle, label: '帖子',   cls: 'component-tag-tweet'   },
+  other:   { icon: BookOpen,      label: '其他',   cls: 'component-tag-other'   },
+  note:    { icon: PenLine,       label: '随手记', cls: 'component-tag-note'    },
+}
+
+const BOOKMARK_TYPES = [
+  { value: 'article', label: '文章',   icon: FileText,      cls: 'component-tag-article' },
+  { value: 'video',   label: '视频',   icon: Video,         cls: 'component-tag-video'   },
+  { value: 'audio',   label: '音频',   icon: Headphones,    cls: 'component-tag-audio'   },
+  { value: 'tweet',   label: '帖子',   icon: MessageCircle, cls: 'component-tag-tweet'   },
+  { value: 'other',   label: '其他',   icon: BookOpen,      cls: 'component-tag-other'   },
+]
+
+function getFavicon(url) {
+  try {
+    const domain = new URL(url).hostname
+    return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`
+  } catch { return null }
+}
+
+function toEditorContent(text: string) {
+  if (!text) return ''
+  if (text.trimStart().startsWith('<')) return text
+  return text.split('\n\n').map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('')
+}
+
+function ToolbarBtn({ onClick, active = false, title, children }) {
+  return (
+    <button
+      title={title}
+      onMouseDown={e => { e.preventDefault(); onClick() }}
+      className={cn(
+        'p-1.5 rounded transition-colors',
+        active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+      )}
+    >
+      {children}
+    </button>
+  )
+}
+
+function EditorToolbar({ editor }) {
+  if (!editor) return null
+  return (
+    <div className="flex items-center gap-0.5 px-1 py-1 border-b flex-wrap">
+      <ToolbarBtn title="加粗" onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')}>
+        <Bold size={14} />
+      </ToolbarBtn>
+      <ToolbarBtn title="斜体" onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')}>
+        <Italic size={14} />
+      </ToolbarBtn>
+      <ToolbarBtn title="删除线" onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive('strike')}>
+        <Strikethrough size={14} />
+      </ToolbarBtn>
+      <div className="w-px h-4 bg-border mx-1" />
+      <ToolbarBtn title="标题" onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive('heading', { level: 2 })}>
+        <Heading2 size={14} />
+      </ToolbarBtn>
+      <div className="w-px h-4 bg-border mx-1" />
+      <ToolbarBtn title="无序列表" onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')}>
+        <List size={14} />
+      </ToolbarBtn>
+      <ToolbarBtn title="有序列表" onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')}>
+        <ListOrdered size={14} />
+      </ToolbarBtn>
+    </div>
+  )
+}
+
+export default function ItemDetailPage() {
+  const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const [item, setItem] = useState(null)
+  const [folders, setFolders] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const [editUrl, setEditUrl] = useState('')
+  const [editType, setEditType] = useState('article')
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Placeholder.configure({ placeholder: '记录你的想法…' }),
+    ],
+    content: '',
+    editable: false,
+  })
+
+  // Load data
+  useEffect(() => {
+    Promise.all([fetchItem(id!), fetchFolders()])
+      .then(([fetchedItem, fetchedFolders]) => {
+        setItem(fetchedItem)
+        setFolders(fetchedFolders)
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false))
+  }, [id])
+
+  // Sync editor content when item or editor becomes ready
+  useEffect(() => {
+    if (item?.note && editor && !isEditing) {
+      editor.commands.setContent(toEditorContent(item.note))
+    }
+  }, [item, editor])
+
+  function startEdit() {
+    setEditTitle(item.title || '')
+    setEditUrl(item.url || '')
+    setEditType(item.type || 'article')
+    if (item.type === 'note') {
+      editor?.commands.setContent(toEditorContent(item.note || ''))
+      editor?.setEditable(true)
+    }
+    setIsEditing(true)
+  }
+
+  function cancelEdit() {
+    if (item.type === 'note') {
+      editor?.commands.setContent(toEditorContent(item.note || ''))
+      editor?.setEditable(false)
+    }
+    setIsEditing(false)
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      const isNote = item.type === 'note'
+      const html = isNote ? (editor?.getHTML() || '') : ''
+      const text = isNote ? (editor?.getText() || '') : ''
+      const updated = await updateItem(item.id, {
+        title: editTitle.trim() || (isNote ? text.slice(0, 20).trim() || '无标题' : '无标题'),
+        url: isNote ? null : (editUrl.trim() || null),
+        type: isNote ? 'note' : editType,
+        note: html,
+      })
+      setItem(updated)
+      if (isNote) editor?.setEditable(false)
+      setIsEditing(false)
+    } catch (err) {
+      console.error('[PB] save error:', err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    try {
+      await deleteItem(id!)
+      navigate('/')
+    } catch (err) {
+      console.error('[PB] delete error:', err)
+    }
+  }
+
+  // ── Loading ──
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="sticky top-0 z-10 bg-background border-b h-14" />
+        <div className="max-w-2xl mx-auto px-4 md:px-8 py-8 space-y-4">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-7 w-3/4" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-2/3" />
+        </div>
+      </div>
+    )
+  }
+
+  if (!item) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen gap-4">
+        <p className="text-muted-foreground text-sm">找不到这条记录</p>
+        <Button variant="outline" size="sm" onClick={() => navigate('/')}>返回</Button>
+      </div>
+    )
+  }
+
+  const typeConf = TYPE_CONFIG[item.type] ?? TYPE_CONFIG.other
+  const TypeIcon = typeConf.icon
+  const favicon = item.url ? getFavicon(item.url) : null
+  const date = item.createdAt
+    ? new Date(item.createdAt).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
+    : ''
+  const folder = folders.find(f => f.id === item.folderId)
+  const isNote = item.type === 'note'
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Sticky top: header row + toolbar */}
+      <div className="sticky top-0 z-10 bg-background border-b">
+        {/* Header row */}
+        <div className="flex items-center justify-between px-4 md:px-8 h-12 gap-4">
+          {/* Left: back + title */}
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              onClick={() => navigate('/')}
+              className="shrink-0 p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <ArrowLeft size={16} />
+            </button>
+            <span className="text-sm font-medium truncate text-foreground">{item.title || '无标题'}</span>
+          </div>
+          {/* Right: actions */}
+          <div className="flex items-center gap-2 shrink-0">
+            {isEditing ? (
+              <>
+                <Button variant="ghost" size="sm" onClick={cancelEdit} disabled={saving}>取消</Button>
+                <Button size="sm" onClick={handleSave} disabled={saving}>
+                  {saving ? '保存中…' : '保存'}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" onClick={startEdit}>
+                  <Pencil size={13} className="mr-1.5" />编辑
+                </Button>
+                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteOpen(true)}>
+                  <Trash2 size={13} className="mr-1.5" />删除
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+        {/* Toolbar row — note edit only */}
+        {isEditing && isNote && (
+          <div className="border-t px-2 py-1">
+            <EditorToolbar editor={editor} />
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="max-w-2xl mx-auto px-6 md:px-12 py-10">
+        {/* Meta row — small, muted, above title */}
+        <div className="flex items-center gap-2.5 mb-4 flex-wrap">
+          <Badge
+            className={cn('h-auto text-[10px] px-1.5 py-1 gap-0.5 border-none', typeConf.cls)}
+            style={{ background: 'var(--tag-bg)', color: 'var(--tag-text)' }}
+          >
+            <TypeIcon size={9} />{typeConf.label}
+          </Badge>
+          {date && <span className="text-xs text-muted-foreground">{date}</span>}
+          {folder && (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <FolderOpen size={12} />{folder.name}
+            </span>
+          )}
+        </div>
+
+        {/* Title — large document heading */}
+        {isEditing ? (
+          <input
+            value={editTitle}
+            onChange={e => setEditTitle(e.target.value)}
+            placeholder={isNote ? '标题（留空则自动生成）' : '标题'}
+            className="w-full text-3xl font-bold leading-tight bg-transparent outline-none placeholder:text-muted-foreground mb-6"
+          />
+        ) : (
+          item.url ? (
+            <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-start gap-2 group mb-6">
+              {favicon && (
+                <img src={favicon} alt="" className="w-6 h-6 rounded shrink-0 mt-1" onError={e => (e.target as HTMLImageElement).style.display = 'none'} />
+              )}
+              <h1 className="text-3xl font-bold leading-tight group-hover:text-primary transition-colors">
+                {item.title || '无标题'}
+                <ExternalLink size={16} className="inline ml-2 opacity-30 group-hover:opacity-60" />
+              </h1>
+            </a>
+          ) : (
+            <h1 className="text-3xl font-bold leading-tight mb-6">{item.title || '无标题'}</h1>
+          )
+        )}
+
+        {/* URL fields — bookmark */}
+        {isEditing && !isNote && (
+          <div className="space-y-3 mb-6">
+            <Input value={editUrl} onChange={e => setEditUrl(e.target.value)} placeholder="https://..." />
+            <div className="flex gap-2 flex-wrap">
+              {BOOKMARK_TYPES.map(t => {
+                const Icon = t.icon
+                const selected = editType === t.value
+                return (
+                  <button
+                    key={t.value}
+                    onClick={() => setEditType(t.value)}
+                    className={cn(
+                      'inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors border-0',
+                      selected ? t.cls : 'bg-[var(--bg-secondary)] text-[var(--text-disabled)] hover:text-[var(--text-secondary)]'
+                    )}
+                    style={selected ? { background: 'var(--tag-bg)', color: 'var(--tag-text)' } : undefined}
+                  >
+                    <Icon size={10} />{t.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {!isEditing && item.url && (
+          <a href={item.url} target="_blank" rel="noopener noreferrer" className="block text-sm text-muted-foreground hover:text-primary transition-colors break-all mb-6">
+            {item.url}
+          </a>
+        )}
+
+        {/* Body — note rich text */}
+        {isNote && (
+          <div className="tiptap-editor">
+            <EditorContent editor={editor} className="text-sm leading-relaxed min-h-[200px]" />
+          </div>
+        )}
+      </div>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={open => { if (!open) setDeleteOpen(false) }}
+        title="删除记录"
+        description="确认删除？此操作无法撤回。"
+        onConfirm={handleDelete}
+        danger
+      />
+    </div>
+  )
+}

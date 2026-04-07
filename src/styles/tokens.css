@@ -1,0 +1,138 @@
+/* ── Layer 1: 全局基础色 ──────────────────────────── */
+:root {
+    /* 品牌色 */
+    --primary:        #333333;
+    --primary-hover:  #404040;
+
+    /* 文字色 */
+    --text-primary:   #262626;
+    --text-secondary: #8C8C8C;
+    --text-disabled:  #BFBFBF;
+    --link:           #2563eb;
+
+    /* 功能色 */
+    --danger:         #dc2626;
+    --success:        #059669;
+    --warning:        #d97706;
+
+    /* 容器色 */
+    --bg-primary:     #FAFAFA;
+    --bg-secondary:   #F2F2F2;
+    --bg-card:        #FFFFFF;
+    --border:         #E8E8E8;
+
+    /* 图标色 */
+    --icon-primary:   #333333;
+    --icon-secondary: #8C8C8C;
+    --icon-disabled:  #BFBFBF;
+
+    /* 其他 */
+    --shadow-light:   0 2px 8px rgba(0, 0, 0, 0.08);
+    --shadow-medium:  0 4px 16px rgba(0, 0, 0, 0.12);
+    --focus-ring:     0 0 0 3px rgba(51, 51, 51, 0.2);
+    --card-shadow:    none;
+    --radius:         0.5rem;
+
+    /* ── shadcn/ui 映射（请勿直接使用，通过上方 token 修改） ── */
+    --background:               var(--bg-primary);
+    --foreground:               var(--text-primary);
+    --card:                     var(--bg-card);
+    --card-foreground:          var(--text-primary);
+    --popover:                  var(--bg-card);
+    --popover-foreground:       var(--text-primary);
+    --primary-foreground:       #ffffff;
+    --secondary:                var(--bg-secondary);
+    --secondary-foreground:     var(--text-primary);
+    --muted:                    var(--bg-secondary);
+    --muted-foreground:         var(--text-secondary);
+    --accent:                   var(--bg-secondary);
+    --accent-foreground:        var(--text-primary);
+    --destructive:              var(--danger);
+    --input:                    var(--border);
+    --ring:                     var(--primary);
+    --sidebar:                  var(--bg-secondary);
+    --sidebar-foreground:       var(--text-primary);
+    --sidebar-primary:          var(--primary);
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent:           var(--bg-secondary);
+    --sidebar-accent-foreground: var(--text-primary);
+    --sidebar-border:           var(--border);
+    --sidebar-ring:             var(--primary);
+    --chart-1: oklch(0.60 0.17 152);
+    --chart-2: oklch(0.52 0.14 200);
+    --chart-3: oklch(0.65 0.15 90);
+    --chart-4: oklch(0.60 0.18 30);
+    --chart-5: oklch(0.55 0.16 270);
+}
+
+/* ── Layer 1 Dark ──────────────────────────────────── */
+.dark {
+    /* 品牌色 */
+    --primary:        oklch(0.922 0 0);
+    --primary-hover:  oklch(0.985 0 0);
+
+    /* 文字色 */
+    --text-primary:   oklch(0.985 0 0);
+    --text-secondary: oklch(0.708 0 0);
+    --text-disabled:  oklch(0.556 0 0);
+    --link:           oklch(0.65 0.19 250);
+
+    /* 功能色 */
+    --danger:         oklch(0.704 0.191 22.216);
+
+    /* 容器色 */
+    --bg-primary:     oklch(0.145 0 0);
+    --bg-secondary:   oklch(0.269 0 0);
+    --bg-card:        oklch(0.205 0 0);
+    --border:         oklch(1 0 0 / 10%);
+
+    /* 图标色 */
+    --icon-primary:   oklch(0.708 0 0);
+    --icon-secondary: oklch(0.556 0 0);
+    --icon-disabled:  oklch(0.371 0 0);
+
+    /* shadcn 特有覆盖（无法从 token 自动推导） */
+    --primary-foreground:         oklch(0.205 0 0);
+    --input:                      oklch(1 0 0 / 15%);
+    --ring:                       oklch(0.556 0 0);
+    --sidebar-primary:            oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent:             oklch(0.269 0 0);
+    --sidebar-accent-foreground:  oklch(0.985 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+}
+
+/* ── Layer 2: 组件例外色 ──────────────────────────── */
+/* 内容类型标签颜色：极浅背景 + 深文字，无边框。详见 docs/Design Guidelines/badge.md */
+.component-tag-article {
+    --tag-bg:   #ecfdf5;
+    --tag-text: #047857;
+}
+.component-tag-video {
+    --tag-bg:   #fff1f2;
+    --tag-text: #be123c;
+}
+.component-tag-audio {
+    --tag-bg:   #faf5ff;
+    --tag-text: #6d28d9;
+}
+.component-tag-tweet {
+    --tag-bg:   #eff6ff;
+    --tag-text: #1d4ed8;
+}
+.component-tag-other {
+    --tag-bg:   #f5f5f5;
+    --tag-text: #525252;
+}
+.component-tag-note {
+    --tag-bg:   #fffbeb;
+    --tag-text: #92400e;
+}
+.component-sidebar-active {
+    --sidebar-bg:   #f3f4f6;
+    --sidebar-text: #333333;
+}

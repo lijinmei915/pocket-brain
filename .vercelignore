@@ -1,0 +1,17 @@
+# 环境变量（绝对不能上线）
+.env
+.env.local
+.env.*.local
+
+# 开发工具
+.cursor/
+.claude/
+CLAUDE.md
+prompts/
+*.md
+
+# 源码映射
+*.map
+
+# 开发依赖
+node_modules

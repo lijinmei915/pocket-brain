@@ -1,3 +1,21 @@
+export interface BookmarkItem {
+  id?: string
+  title: string
+  url?: string | null
+  type: string
+  note: string
+  tags: string[]
+  thumbnail: string
+  source?: string
+  folderId?: string | null
+  folderid?: string | null
+  summary?: string
+  createdat?: string
+}
+
+type DbRow = Record<string, unknown>
+type RestOptions = Omit<RequestInit, 'headers'> & { headers?: Record<string, string> }
+
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY
 
@@ -7,7 +25,7 @@ const HEADERS = {
   'Content-Type': 'application/json',
 }
 
-async function rest(path, options = {}) {
+async function rest(path: string, options: RestOptions = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
     ...options,
     headers: { ...HEADERS, ...options.headers },
@@ -25,6 +43,11 @@ async function rest(path, options = {}) {
 export async function fetchItems() {
   const data = await rest('/items?select=*&order=createdat.desc')
   return (data || []).map(itemFromDb)
+}
+
+export async function fetchItem(id: string) {
+  const data = await rest(`/items?id=eq.${id}&select=*`)
+  return data?.[0] ? itemFromDb(data[0]) : null
 }
 
 export async function createItem(item) {
@@ -84,8 +107,8 @@ export async function deleteFolder(id) {
 }
 
 // ── DB mapping ──
-function itemToDb(item) {
-  const row = {}
+function itemToDb(item: Partial<BookmarkItem>): DbRow {
+  const row: DbRow = {}
   if (item.title !== undefined) row.title = item.title
   if (item.url !== undefined) row.url = item.url
   if (item.type !== undefined) row.type = item.type
@@ -98,7 +121,7 @@ function itemToDb(item) {
   return row
 }
 
-function itemFromDb(row) {
+function itemFromDb(row: DbRow) {
   return {
     id: row.id,
     title: row.title || '',

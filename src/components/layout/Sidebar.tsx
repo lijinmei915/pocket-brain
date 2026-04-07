@@ -1,10 +1,9 @@
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
-  Inbox, BookOpen, Plus, Search, FolderOpen, Folder,
+  Inbox, BookOpen, Search, FolderOpen, Folder,
   MoreHorizontal, Pencil, Trash2, FolderPlus, Brain, X, Bookmark
 } from 'lucide-react'
 
@@ -16,8 +15,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import FolderDialog from '@/components/FolderDialog'
-import ConfirmDialog from '@/components/ConfirmDialog'
+import FolderDialog from '@/components/features/FolderDialog'
+import ConfirmDialog from '@/components/features/ConfirmDialog'
 import { cn } from '@/lib/utils'
 
 function FolderItem({ folder, folders, items, selected, depth, onSelect, onRename, onDelete, onCreateSub }) {
@@ -137,7 +136,7 @@ export default function Sidebar({ folders, items, selected, onSelect, onCreateFo
   const sidebarContent = (
     <>
       {/* Logo */}
-      <div className="flex items-center gap-2 px-4 py-4 border-b">
+      <div className="flex items-center gap-2 px-4 border-b h-14">
         <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
           <Brain size={14} className="text-primary-foreground" />
         </div>
@@ -165,12 +164,8 @@ export default function Sidebar({ folders, items, selected, onSelect, onCreateFo
       </div>
 
       <ScrollArea className="flex-1 px-2">
-        <Button onClick={() => { onAdd(); onMobileClose?.() }} size="sm" className="w-full mb-3 gap-1.5">
-          <Plus size={14} /> 添加收藏
-        </Button>
-
         <div className="space-y-0.5 mb-2">
-          <NavItem icon={Inbox} label="收件箱" count={inboxCount} active={selected === 'inbox'} onClick={() => handleSelect('inbox')} />
+          <NavItem icon={Inbox} label="稍后整理" count={inboxCount} active={selected === 'inbox'} onClick={() => handleSelect('inbox')} />
           <NavItem icon={BookOpen} label="全部内容" count={allCount} active={selected === 'all'} onClick={() => handleSelect('all')} />
         </div>
 
@@ -216,7 +211,7 @@ export default function Sidebar({ folders, items, selected, onSelect, onCreateFo
           className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
         >
           <Bookmark size={11} />
-          <span>{bookmarkCopied ? '✓ 已复制，粘贴到新书签的网址栏' : '📌 复制书签代码'}</span>
+          <span>{bookmarkCopied ? '✓ 已复制' : '📌 复制书签代码'}</span>
         </button>
       </div>
 
@@ -232,7 +227,7 @@ export default function Sidebar({ folders, items, selected, onSelect, onCreateFo
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         title="删除文件夹"
-        description="删除后，文件夹内的收藏会移到收件箱。确认删除？"
+        description="删除后，文件夹内的收藏会移到「稍后整理」。确认删除？"
         onConfirm={handleDeleteConfirm}
         danger
       />

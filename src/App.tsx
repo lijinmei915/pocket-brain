@@ -1,9 +1,13 @@
 import { useEffect, useState, useCallback } from 'react'
+import { Routes, Route } from 'react-router-dom'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import Sidebar from '@/components/Sidebar'
-import ItemGrid from '@/components/ItemGrid'
-import AddItemDialog from '@/components/AddItemDialog'
-import { fetchItems, fetchFolders, createItem, updateItem, deleteItem, createFolder, renameFolder, deleteFolder } from '@/lib/supabase'
+import ItemDetailPage from '@/pages/ItemDetailPage'
+import SharePage from '@/pages/SharePage'
+import Sidebar from '@/components/layout/Sidebar'
+import ItemGrid from '@/components/features/ItemGrid'
+import AddItemDialog from '@/components/features/AddItemDialog'
+import DesignPanel from '@/components/features/DesignPanel'
+import { fetchItems, fetchFolders, createItem, updateItem, deleteItem, createFolder, renameFolder, deleteFolder } from '@/utils/supabase'
 
 function guessType(url) {
   const u = (url || '').toLowerCase()
@@ -29,8 +33,6 @@ export default function App() {
   useEffect(() => {
     Promise.all([fetchItems(), fetchFolders()])
       .then(([fetchedItems, fetchedFolders]) => {
-        console.log('[PB] items loaded:', fetchedItems.length, fetchedItems)
-        console.log('[PB] folders loaded:', fetchedFolders.length)
         setItems(fetchedItems)
         setFolders(fetchedFolders)
       })
@@ -63,44 +65,68 @@ export default function App() {
   const closeDialog = useCallback(() => setDialogItem(null), [])
 
   const handleSave = useCallback(async (data) => {
-    if (data.id) {
-      // Edit mode
-      const { id, ...changes } = data
-      const item = await updateItem(id, changes)
-      setItems(prev => prev.map(i => i.id === id ? item : i))
-    } else {
-      // Create mode
-      const item = await createItem(data)
-      setItems(prev => [item, ...prev])
+    try {
+      if (data.id) {
+        // Edit mode
+        const { id, ...changes } = data
+        const item = await updateItem(id, changes)
+        setItems(prev => prev.map(i => i.id === id ? item : i))
+      } else {
+        // Create mode
+        const item = await createItem(data)
+        setItems(prev => [item, ...prev])
+      }
+      setDialogItem(null)
+    } catch (err) {
+      console.error('[PB] save error:', err)
     }
-    setDialogItem(null)
   }, [])
 
   const handleUpdateItem = useCallback(async (id, changes) => {
-    const item = await updateItem(id, changes)
-    setItems(prev => prev.map(i => i.id === id ? item : i))
+    try {
+      const item = await updateItem(id, changes)
+      setItems(prev => prev.map(i => i.id === id ? item : i))
+    } catch (err) {
+      console.error('[PB] update error:', err)
+    }
   }, [])
 
   const handleDeleteItem = useCallback(async (id) => {
-    await deleteItem(id)
-    setItems(prev => prev.filter(i => i.id !== id))
+    try {
+      await deleteItem(id)
+      setItems(prev => prev.filter(i => i.id !== id))
+    } catch (err) {
+      console.error('[PB] delete error:', err)
+    }
   }, [])
 
   const handleCreateFolder = useCallback(async (name, parentId) => {
-    const folder = await createFolder(name, parentId)
-    setFolders(prev => [...prev, folder])
+    try {
+      const folder = await createFolder(name, parentId)
+      setFolders(prev => [...prev, folder])
+    } catch (err) {
+      console.error('[PB] create folder error:', err)
+    }
   }, [])
 
   const handleRenameFolder = useCallback(async (id, name) => {
-    const folder = await renameFolder(id, name)
-    setFolders(prev => prev.map(f => f.id === id ? folder : f))
+    try {
+      const folder = await renameFolder(id, name)
+      setFolders(prev => prev.map(f => f.id === id ? folder : f))
+    } catch (err) {
+      console.error('[PB] rename folder error:', err)
+    }
   }, [])
 
   const handleDeleteFolder = useCallback(async (id) => {
-    await deleteFolder(id)
-    setFolders(prev => prev.filter(f => f.id !== id))
-    setItems(prev => prev.map(i => i.folderId === id ? { ...i, folderId: null } : i))
-    if (selectedFolder === id) setSelectedFolder('inbox')
+    try {
+      await deleteFolder(id)
+      setFolders(prev => prev.filter(f => f.id !== id))
+      setItems(prev => prev.map(i => i.folderId === id ? { ...i, folderId: null } : i))
+      if (selectedFolder === id) setSelectedFolder('inbox')
+    } catch (err) {
+      console.error('[PB] delete folder error:', err)
+    }
   }, [selectedFolder])
 
   const filteredItems = items.filter(item => {
@@ -117,9 +143,8 @@ export default function App() {
     return matchFolder && matchSearch
   })
 
-  return (
-    <TooltipProvider>
-      <div className="flex h-screen bg-background overflow-hidden">
+  const mainLayout = (
+    <div className="flex h-screen bg-background overflow-hidden">
         <Sidebar
           folders={folders}
           items={items}
@@ -155,7 +180,17 @@ export default function App() {
           defaultFolderId={selectedFolder !== 'all' && selectedFolder !== 'inbox' ? selectedFolder : null}
           editItem={editItem}
         />
+        <DesignPanel />
       </div>
+  )
+
+  return (
+    <TooltipProvider>
+      <Routes>
+        <Route path="/" element={mainLayout} />
+        <Route path="/item/:id" element={<ItemDetailPage />} />
+        <Route path="/share" element={<SharePage />} />
+      </Routes>
     </TooltipProvider>
   )
 }
