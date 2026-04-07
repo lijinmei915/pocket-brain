@@ -302,7 +302,7 @@ export default function ItemDetailPage() {
         {/* URL fields — bookmark */}
         {isEditing && !isNote && (
           <div className="space-y-3 mb-6">
-            <Input value={editUrl} onChange={e => setEditUrl(e.target.value)} placeholder="https://..." />
+            <Input className="text-sm" value={editUrl} onChange={e => setEditUrl(e.target.value)} placeholder="https://..." />
             <div className="flex gap-2 flex-wrap">
               {BOOKMARK_TYPES.map(t => {
                 const Icon = t.icon

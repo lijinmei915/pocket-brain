@@ -28,6 +28,7 @@ export default function FolderDialog({ open, onOpenChange, mode, currentName, on
         </DialogHeader>
         <div className="py-2">
           <Input
+            className="text-sm"
             value={name}
             onChange={e => setName(e.target.value)}
             placeholder="文件夹名称"
