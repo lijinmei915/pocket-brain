@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import ItemDetailPage from '@/pages/ItemDetailPage'
 import SharePage from '@/pages/SharePage'
+import SavePage from '@/pages/SavePage'
 import Sidebar from '@/components/layout/Sidebar'
 import ItemGrid from '@/components/features/ItemGrid'
 import AddItemDialog from '@/components/features/AddItemDialog'
@@ -190,6 +191,7 @@ export default function App() {
         <Route path="/" element={mainLayout} />
         <Route path="/item/:id" element={<ItemDetailPage />} />
         <Route path="/share" element={<SharePage />} />
+        <Route path="/save" element={<SavePage />} />
       </Routes>
     </TooltipProvider>
   )
