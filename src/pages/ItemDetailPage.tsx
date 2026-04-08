@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useEditor, EditorContent } from '@tiptap/react'
+import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import {
@@ -249,18 +249,12 @@ export default function ItemDetailPage() {
             )}
           </div>
         </div>
-        {/* Toolbar row — note edit only */}
-        {isEditing && isNote && (
-          <div className="border-t px-2 py-1">
-            <EditorToolbar editor={editor} />
-          </div>
-        )}
       </div>
 
       {/* Content */}
-      <div className="max-w-2xl mx-auto px-6 md:px-12 py-10">
+      <div className="max-w-2xl mx-auto px-6 md:px-12 py-6">
         {/* Meta row — small, muted, above title */}
-        <div className="flex items-center gap-2.5 mb-4 flex-wrap">
+        <div className="flex items-center gap-2.5 mb-2 flex-wrap">
           <Badge
             className={cn('h-auto text-[10px] px-1.5 py-1 gap-0.5 border-none', typeConf.cls)}
             style={{ background: 'var(--tag-bg)', color: 'var(--tag-text)' }}
@@ -334,6 +328,32 @@ export default function ItemDetailPage() {
         {/* Body — note rich text */}
         {isNote && (
           <div className="tiptap-editor">
+            {editor && (
+              <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }}>
+                <div className="flex items-center gap-0.5 bg-background border border-border rounded-lg shadow-md px-1 py-1">
+                  <ToolbarBtn title="加粗" onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')}>
+                    <Bold size={14} />
+                  </ToolbarBtn>
+                  <ToolbarBtn title="斜体" onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')}>
+                    <Italic size={14} />
+                  </ToolbarBtn>
+                  <ToolbarBtn title="删除线" onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive('strike')}>
+                    <Strikethrough size={14} />
+                  </ToolbarBtn>
+                  <div className="w-px h-4 bg-border mx-1" />
+                  <ToolbarBtn title="标题" onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive('heading', { level: 2 })}>
+                    <Heading2 size={14} />
+                  </ToolbarBtn>
+                  <div className="w-px h-4 bg-border mx-1" />
+                  <ToolbarBtn title="无序列表" onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')}>
+                    <List size={14} />
+                  </ToolbarBtn>
+                  <ToolbarBtn title="有序列表" onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')}>
+                    <ListOrdered size={14} />
+                  </ToolbarBtn>
+                </div>
+              </BubbleMenu>
+            )}
             <EditorContent editor={editor} className="text-sm leading-relaxed min-h-[200px]" />
           </div>
         )}
