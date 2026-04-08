@@ -198,8 +198,7 @@ export default function Sidebar({ folders, items, selected, onSelect, onCreateFo
         </div>
       </ScrollArea>
 
-      <div className="px-4 py-3 border-t flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">共 {allCount} 条收藏</p>
+      <div className="px-4 py-3 border-t">
         <button
           onClick={() => setGetAppOpen(true)}
           className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
