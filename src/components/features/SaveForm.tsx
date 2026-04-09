@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   FileText, Video, Headphones, MessageCircle, BookOpen,
-  Upload, X, Image, FileArchive, Music, Loader2, RefreshCw,
+  Upload, X, Image, FileArchive, Music, Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -114,7 +114,6 @@ export default function SaveForm({
   const [url,            setUrl]            = useState(editItem?.url   ?? initialUrl)
   const [title,          setTitle]          = useState(editItem?.title ?? initialTitle)
   const [titleTouched,   setTitleTouched]   = useState(false)
-  const [fetchingTitle,  setFetchingTitle]  = useState(false)
   const [typeTouched,    setTypeTouched]    = useState(!!editItem)
   const [classifyLoading, setClassifyLoading] = useState(false)
 
@@ -145,36 +144,6 @@ export default function SaveForm({
     }
   }
 
-  async function fetchTitleForUrl() {
-    if (!url) return
-    setFetchingTitle(true)
-    try {
-      // 先试 microlink
-      try {
-        const r = await fetch(
-          `https://api.microlink.io/?url=${encodeURIComponent(url)}`,
-          { signal: AbortSignal.timeout(5000) }
-        )
-        const data = await r.json()
-        if (data?.data?.title) { setTitle(data.data.title); setTitleTouched(true); return }
-      } catch {}
-      // 备用：allorigins 解析 HTML title
-      try {
-        const r = await fetch(
-          `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-          { signal: AbortSignal.timeout(6000) }
-        )
-        const data = await r.json()
-        const html: string = data?.contents ?? ''
-        const og = html.match(/property="og:title"\s+content="([^"]+)"/i)?.[1]
-          ?? html.match(/content="([^"]+)"\s+property="og:title"/i)?.[1]
-        const t = og ?? html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim()
-        if (t) { setTitle(t); setTitleTouched(true); return }
-      } catch {}
-    } finally {
-      setFetchingTitle(false)
-    }
-  }
   const [type,  setType]  = useState(editItem?.type  ?? guessType(initialUrl))
   const [note,  setNote]  = useState(editItem?.type !== 'note' ? (editItem?.note ?? '') : '')
 
@@ -305,22 +274,7 @@ export default function SaveForm({
               />
             </div>
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-sm font-medium">标题</label>
-                {url && !title && (
-                  <button
-                    type="button"
-                    onClick={fetchTitleForUrl}
-                    disabled={fetchingTitle}
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-                  >
-                    {fetchingTitle
-                      ? <Loader2 size={11} className="animate-spin" />
-                      : <RefreshCw size={11} />}
-                    自动获取标题
-                  </button>
-                )}
-              </div>
+              <label className="text-sm font-medium block mb-1">标题</label>
               <Input
                 className="text-sm"
                 placeholder="留空则使用链接作为标题"
