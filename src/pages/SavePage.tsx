@@ -21,11 +21,21 @@ export default function SavePage() {
   const initUrl    = params.get('url')   || ''
   const initTitle  = params.get('title') || ''
 
-  const [folders, setFolders] = useState([])
-  const [status,  setStatus]  = useState<'form' | 'done' | 'error'>('form')
+  const [folders,       setFolders]       = useState([])
+  const [status,        setStatus]        = useState<'form' | 'done' | 'error'>('form')
+  const [resolvedTitle, setResolvedTitle] = useState(initTitle)
 
   useEffect(() => {
     fetchFolders().then(setFolders).catch(console.error)
+  }, [])
+
+  // 有 URL 但没有标题时，后台自动抓取
+  useEffect(() => {
+    if (!initUrl || initTitle) return
+    fetch(`/api/fetch-title?url=${encodeURIComponent(initUrl)}`)
+      .then(r => r.json())
+      .then(data => { if (data.title) setResolvedTitle(data.title) })
+      .catch(() => {})
   }, [])
 
   async function handleSave(data) {
@@ -69,7 +79,7 @@ export default function SavePage() {
       <SaveForm
         folders={folders}
         initialUrl={initUrl}
-        initialTitle={initTitle}
+        initialTitle={resolvedTitle}
         onSave={handleSave}
         onCancel={handleCancel}
       />
