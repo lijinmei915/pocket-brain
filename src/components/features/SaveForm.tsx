@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   FileText, Video, Headphones, MessageCircle, BookOpen,
-  Upload, X, Image, FileArchive, Music, Loader2,
+  Upload, X, Image, FileArchive, Music, Loader2, RefreshCw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -114,6 +114,7 @@ export default function SaveForm({
   const [url,            setUrl]            = useState(editItem?.url   ?? initialUrl)
   const [title,          setTitle]          = useState(editItem?.title ?? initialTitle)
   const [titleTouched,   setTitleTouched]   = useState(false)
+  const [fetchingTitle,  setFetchingTitle]  = useState(false)
   const [typeTouched,    setTypeTouched]    = useState(!!editItem)
   const [classifyLoading, setClassifyLoading] = useState(false)
 
@@ -274,7 +275,27 @@ export default function SaveForm({
               />
             </div>
             <div>
-              <label className="text-sm font-medium block mb-1">标题</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm font-medium">标题</label>
+                {url && !title && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setFetchingTitle(true)
+                      try {
+                        const r = await fetch(`/api/fetch-title?url=${encodeURIComponent(url)}`)
+                        const data = await r.json()
+                        if (data.title) { setTitle(data.title); setTitleTouched(true) }
+                      } catch {} finally { setFetchingTitle(false) }
+                    }}
+                    disabled={fetchingTitle}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                  >
+                    {fetchingTitle ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+                    自动获取标题
+                  </button>
+                )}
+              </div>
               <Input
                 className="text-sm"
                 placeholder="留空则使用链接作为标题"
