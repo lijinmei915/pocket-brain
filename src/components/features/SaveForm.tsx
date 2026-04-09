@@ -111,15 +111,39 @@ export default function SaveForm({
   )
 
   // 收藏
-  const [url,          setUrl]          = useState(editItem?.url   ?? initialUrl)
-  const [title,        setTitle]        = useState(editItem?.title ?? initialTitle)
-  const [titleTouched,  setTitleTouched]  = useState(false)
-  const [fetchingTitle, setFetchingTitle] = useState(false)
+  const [url,            setUrl]            = useState(editItem?.url   ?? initialUrl)
+  const [title,          setTitle]          = useState(editItem?.title ?? initialTitle)
+  const [titleTouched,   setTitleTouched]   = useState(false)
+  const [fetchingTitle,  setFetchingTitle]  = useState(false)
+  const [typeTouched,    setTypeTouched]    = useState(!!editItem)
+  const [classifyLoading, setClassifyLoading] = useState(false)
 
   // initialTitle 异步到达时，只要用户没手动改过就填入
   useEffect(() => {
     if (initialTitle && !titleTouched) setTitle(initialTitle)
   }, [initialTitle])
+
+  // URL 改变时，自动分类
+  useEffect(() => {
+    if (!url || url === initialUrl || typeTouched || isEdit) return
+    autoClassify()
+  }, [url])
+
+  async function autoClassify() {
+    if (!url) return
+    setClassifyLoading(true)
+    try {
+      const r = await fetch(`/api/classify?url=${encodeURIComponent(url)}&title=${encodeURIComponent(title)}`)
+      if (r.ok) {
+        const data = await r.json()
+        if (data.type) setType(data.type)
+      }
+    } catch (err) {
+      console.error('[PB] classify error:', err)
+    } finally {
+      setClassifyLoading(false)
+    }
+  }
 
   async function fetchTitleForUrl() {
     if (!url) return
@@ -176,7 +200,6 @@ export default function SaveForm({
 
   function handleUrlChange(val: string) {
     setUrl(val)
-    if (!isEdit) setType(guessType(val))
   }
 
   function addFiles(incoming: File[]) {
@@ -312,7 +335,7 @@ export default function SaveForm({
                   const Icon = t.icon
                   const selected = type === t.value
                   return (
-                    <button key={t.value} onClick={() => setType(t.value)}
+                    <button key={t.value} onClick={() => { setType(t.value); setTypeTouched(true) }}
                       className={cn(
                         'inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors border-0',
                         selected ? t.cls : 'bg-[var(--bg-secondary)] text-[var(--text-disabled)] hover:text-[var(--text-secondary)]'

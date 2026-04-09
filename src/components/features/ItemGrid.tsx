@@ -104,7 +104,7 @@ function ItemCard({ item, folders, onDelete, onEdit, onMove, folderOptions = [] 
                 ))}
               </DropdownMenuSubContent>
             </DropdownMenuSub>
-            <DropdownMenuItem onClick={() => onDelete(item.id)} className="text-destructive">
+            <DropdownMenuItem onClick={() => onDelete(item.id)} variant="destructive">
               <Trash2 size={13} className="mr-2" /> 删除
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -181,10 +181,10 @@ export default function ItemGrid({ items, folders, loading, selectedFolder, onUp
   const folderOptions = buildFolderOptions(folders.filter(f => !f.parentId))
 
   return (
-    <div className="flex flex-col h-full">
+    <div>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 md:px-8 border-b bg-background sticky top-0 z-10 h-14">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-4 md:px-8 border-b bg-background sticky top-0 z-10 h-14 shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
           <button onClick={onMobileMenuOpen} className="p-1 rounded hover:bg-muted md:hidden">
             <Menu size={18} />
           </button>
