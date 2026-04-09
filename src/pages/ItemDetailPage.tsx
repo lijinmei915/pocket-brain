@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react'
+import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
+import { TextStyle, Color, FontSize, BackgroundColor } from '@tiptap/extension-text-style'
+import Underline from '@tiptap/extension-underline'
 import {
-  ArrowLeft, ExternalLink, Pencil, Trash2,
-  FileText, Video, Headphones, MessageCircle, BookOpen, PenLine, FolderOpen,
-  Bold, Italic, Strikethrough, List, ListOrdered, Heading2,
+  ArrowLeft, ExternalLink, Pencil, Trash2, Download,
+  FileText, Video, Headphones, MessageCircle, BookOpen, PenLine, FolderOpen, Paperclip,
 } from 'lucide-react'
+import { deleteFile } from '@/utils/supabase'
+import EditorBubbleMenu from '@/components/features/EditorBubbleMenu'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -23,6 +26,7 @@ const TYPE_CONFIG = {
   tweet:   { icon: MessageCircle, label: '帖子',   cls: 'component-tag-tweet'   },
   other:   { icon: BookOpen,      label: '其他',   cls: 'component-tag-other'   },
   note:    { icon: PenLine,       label: '随手记', cls: 'component-tag-note'    },
+  file:    { icon: Paperclip,     label: '文件',   cls: 'component-tag-other'   },
 }
 
 const BOOKMARK_TYPES = [
@@ -46,48 +50,7 @@ function toEditorContent(text: string) {
   return text.split('\n\n').map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('')
 }
 
-function ToolbarBtn({ onClick, active = false, title, children }) {
-  return (
-    <button
-      title={title}
-      onMouseDown={e => { e.preventDefault(); onClick() }}
-      className={cn(
-        'p-1.5 rounded transition-colors',
-        active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-      )}
-    >
-      {children}
-    </button>
-  )
-}
 
-function EditorToolbar({ editor }) {
-  if (!editor) return null
-  return (
-    <div className="flex items-center gap-0.5 px-1 py-1 border-b flex-wrap">
-      <ToolbarBtn title="加粗" onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')}>
-        <Bold size={14} />
-      </ToolbarBtn>
-      <ToolbarBtn title="斜体" onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')}>
-        <Italic size={14} />
-      </ToolbarBtn>
-      <ToolbarBtn title="删除线" onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive('strike')}>
-        <Strikethrough size={14} />
-      </ToolbarBtn>
-      <div className="w-px h-4 bg-border mx-1" />
-      <ToolbarBtn title="标题" onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive('heading', { level: 2 })}>
-        <Heading2 size={14} />
-      </ToolbarBtn>
-      <div className="w-px h-4 bg-border mx-1" />
-      <ToolbarBtn title="无序列表" onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')}>
-        <List size={14} />
-      </ToolbarBtn>
-      <ToolbarBtn title="有序列表" onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')}>
-        <ListOrdered size={14} />
-      </ToolbarBtn>
-    </div>
-  )
-}
 
 export default function ItemDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -106,6 +69,11 @@ export default function ItemDetailPage() {
     extensions: [
       StarterKit,
       Placeholder.configure({ placeholder: '记录你的想法…' }),
+      TextStyle,
+      Color,
+      FontSize,
+      BackgroundColor,
+      Underline,
     ],
     content: '',
     editable: false,
@@ -128,6 +96,7 @@ export default function ItemDetailPage() {
       editor.commands.setContent(toEditorContent(item.note))
     }
   }, [item, editor])
+
 
   function startEdit() {
     setEditTitle(item.title || '')
@@ -172,6 +141,9 @@ export default function ItemDetailPage() {
 
   async function handleDelete() {
     try {
+      if (item?.type === 'file' && item?.url) {
+        await deleteFile(item.url).catch(() => {}) // storage 删除失败不阻断
+      }
       await deleteItem(id!)
       navigate('/')
     } catch (err) {
@@ -319,41 +291,29 @@ export default function ItemDetailPage() {
           </div>
         )}
 
-        {!isEditing && item.url && (
+        {!isEditing && item.url && item.type !== 'file' && (
           <a href={item.url} target="_blank" rel="noopener noreferrer" className="block text-sm text-muted-foreground hover:text-primary transition-colors break-all mb-6">
             {item.url}
+          </a>
+        )}
+
+        {!isEditing && item.type === 'file' && item.url && (
+          <a
+            href={item.url}
+            download
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-input bg-muted/40 text-sm text-foreground hover:bg-muted transition-colors mb-6"
+          >
+            <Download size={14} />
+            下载文件
           </a>
         )}
 
         {/* Body — note rich text */}
         {isNote && (
           <div className="tiptap-editor">
-            {editor && (
-              <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }}>
-                <div className="flex items-center gap-0.5 bg-background border border-border rounded-lg shadow-md px-1 py-1">
-                  <ToolbarBtn title="加粗" onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')}>
-                    <Bold size={14} />
-                  </ToolbarBtn>
-                  <ToolbarBtn title="斜体" onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')}>
-                    <Italic size={14} />
-                  </ToolbarBtn>
-                  <ToolbarBtn title="删除线" onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive('strike')}>
-                    <Strikethrough size={14} />
-                  </ToolbarBtn>
-                  <div className="w-px h-4 bg-border mx-1" />
-                  <ToolbarBtn title="标题" onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive('heading', { level: 2 })}>
-                    <Heading2 size={14} />
-                  </ToolbarBtn>
-                  <div className="w-px h-4 bg-border mx-1" />
-                  <ToolbarBtn title="无序列表" onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')}>
-                    <List size={14} />
-                  </ToolbarBtn>
-                  <ToolbarBtn title="有序列表" onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')}>
-                    <ListOrdered size={14} />
-                  </ToolbarBtn>
-                </div>
-              </BubbleMenu>
-            )}
+            {editor && <EditorBubbleMenu editor={editor} />}
             <EditorContent editor={editor} className="text-sm leading-relaxed min-h-[200px]" />
           </div>
         )}

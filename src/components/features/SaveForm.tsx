@@ -1,12 +1,13 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   FileText, Video, Headphones, MessageCircle, BookOpen,
-  Upload, X, Image, FileArchive, Music, Loader2,
+  Upload, X, Image, FileArchive, Music, Loader2, RefreshCw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { uploadFile } from '@/utils/supabase'
 
 // ── 常量 ──────────────────────────────────────────────────────────────────────
 
@@ -110,8 +111,46 @@ export default function SaveForm({
   )
 
   // 收藏
-  const [url,   setUrl]   = useState(editItem?.url   ?? initialUrl)
-  const [title, setTitle] = useState(editItem?.title ?? initialTitle)
+  const [url,          setUrl]          = useState(editItem?.url   ?? initialUrl)
+  const [title,        setTitle]        = useState(editItem?.title ?? initialTitle)
+  const [titleTouched,  setTitleTouched]  = useState(false)
+  const [fetchingTitle, setFetchingTitle] = useState(false)
+
+  // initialTitle 异步到达时，只要用户没手动改过就填入
+  useEffect(() => {
+    if (initialTitle && !titleTouched) setTitle(initialTitle)
+  }, [initialTitle])
+
+  async function fetchTitleForUrl() {
+    if (!url) return
+    setFetchingTitle(true)
+    try {
+      // 先试 microlink
+      try {
+        const r = await fetch(
+          `https://api.microlink.io/?url=${encodeURIComponent(url)}`,
+          { signal: AbortSignal.timeout(5000) }
+        )
+        const data = await r.json()
+        if (data?.data?.title) { setTitle(data.data.title); setTitleTouched(true); return }
+      } catch {}
+      // 备用：allorigins 解析 HTML title
+      try {
+        const r = await fetch(
+          `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+          { signal: AbortSignal.timeout(6000) }
+        )
+        const data = await r.json()
+        const html: string = data?.contents ?? ''
+        const og = html.match(/property="og:title"\s+content="([^"]+)"/i)?.[1]
+          ?? html.match(/content="([^"]+)"\s+property="og:title"/i)?.[1]
+        const t = og ?? html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim()
+        if (t) { setTitle(t); setTitleTouched(true); return }
+      } catch {}
+    } finally {
+      setFetchingTitle(false)
+    }
+  }
   const [type,  setType]  = useState(editItem?.type  ?? guessType(initialUrl))
   const [note,  setNote]  = useState(editItem?.type !== 'note' ? (editItem?.note ?? '') : '')
 
@@ -119,9 +158,10 @@ export default function SaveForm({
   const [content, setContent] = useState(editItem?.type === 'note' ? (editItem?.note ?? '') : '')
 
   // 资源
-  const [files,     setFiles]     = useState<File[]>([])
-  const [fileTitle, setFileTitle] = useState('')
-  const [dragOver,  setDragOver]  = useState(false)
+  const [files,       setFiles]       = useState<File[]>([])
+  const [fileTitle,   setFileTitle]   = useState('')
+  const [dragOver,    setDragOver]    = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // 共享
@@ -173,7 +213,18 @@ export default function SaveForm({
           folderId: folderId === INBOX ? null : folderId,
         })
       } else if (tab === 'file') {
-        return // 暂未接入存储
+        if (files.length === 0) return
+        setUploadError(null)
+        for (const file of files) {
+          const publicUrl = await uploadFile(file)
+          await onSave({
+            url: publicUrl,
+            title: fileTitle.trim() || file.name,
+            type: 'file',
+            note: '',
+            folderId: folderId === INBOX ? null : folderId,
+          })
+        }
       } else {
         if (!url.trim()) return
         await onSave({
@@ -192,7 +243,7 @@ export default function SaveForm({
   const canSave = tab === 'note'
     ? content.trim().length > 0
     : tab === 'file'
-      ? false
+      ? files.length > 0 && !overLimit
       : url.trim().length > 0
 
   // 两个 Fragment 子节点作为 flex 容器（父）的直接子元素
@@ -211,7 +262,7 @@ export default function SaveForm({
                   tab === t ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                {t === 'bookmark' ? '收藏' : t === 'note' ? '记录' : '资源'}
+                {t === 'bookmark' ? '收藏' : t === 'note' ? '灵感' : '资料'}
               </button>
             ))}
           </div>
@@ -231,12 +282,27 @@ export default function SaveForm({
               />
             </div>
             <div>
-              <label className="text-sm font-medium block mb-1">标题</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm font-medium">标题</label>
+                {url && !title && (
+                  <button
+                    type="button"
+                    onClick={fetchTitleForUrl}
+                    disabled={fetchingTitle}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                  >
+                    {fetchingTitle
+                      ? <Loader2 size={11} className="animate-spin" />
+                      : <RefreshCw size={11} />}
+                    自动获取标题
+                  </button>
+                )}
+              </div>
               <Input
                 className="text-sm"
                 placeholder="留空则使用链接作为标题"
                 value={title}
-                onChange={e => setTitle(e.target.value)}
+                onChange={e => { setTitle(e.target.value); setTitleTouched(true) }}
               />
             </div>
             <div>
@@ -332,9 +398,9 @@ export default function SaveForm({
               <label className="text-sm font-medium block mb-1">标题</label>
               <Input className="text-sm" placeholder="留空则使用文件名" value={fileTitle} onChange={e => setFileTitle(e.target.value)} />
             </div>
-            <p className="text-xs text-muted-foreground bg-muted/60 rounded-md px-3 py-2">
-              文件上传功能即将开放，当前仅支持选择预览。
-            </p>
+            {uploadError && (
+              <p className="text-xs text-destructive bg-destructive/10 rounded-md px-3 py-2">{uploadError}</p>
+            )}
           </div>
         )}
 

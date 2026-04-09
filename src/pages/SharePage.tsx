@@ -7,10 +7,15 @@ export default function SharePage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    const url   = params.get('url')   || params.get('text') || ''
-    const title = params.get('title') || ''
+    const rawUrl   = params.get('url') || ''
+    const rawText  = params.get('text') || ''
+    const title    = params.get('title') || ''
 
-    if (!url.trim()) {
+    // 优先用 url 参数，没有则从 text 里提取第一个 http 链接（小红书等 app 把链接混在文字里）
+    const extracted = rawText.match(/https?:\/\/[^\s"'<>）】]+/)?.[0] ?? ''
+    const url = rawUrl.trim() || extracted.trim()
+
+    if (!url) {
       navigate('/')
       return
     }

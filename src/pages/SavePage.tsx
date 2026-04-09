@@ -1,11 +1,22 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Logo } from '@/components/ui/Logo'
 import { createItem, fetchFolders } from '@/utils/supabase'
 import SaveForm from '@/components/features/SaveForm'
 
+// PWA standalone 模式下 window.close() 无效，改为跳回首页
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+
+function dismiss() {
+  if (isStandalone) return false // 让调用方用 navigate
+  window.close()
+  return true
+}
+
 export default function SavePage() {
+  const navigate   = useNavigate()
   const params     = new URLSearchParams(window.location.search)
   const initUrl    = params.get('url')   || ''
   const initTitle  = params.get('title') || ''
@@ -21,17 +32,23 @@ export default function SavePage() {
     try {
       await createItem(data)
       setStatus('done')
-      setTimeout(() => window.close(), 1200)
+      setTimeout(() => {
+        if (!dismiss()) navigate('/')
+      }, 1200)
     } catch {
       setStatus('error')
     }
+  }
+
+  function handleCancel() {
+    if (!dismiss()) navigate('/')
   }
 
   if (status === 'done') return (
     <div className="flex flex-col items-center justify-center h-screen gap-3 bg-background">
       <CheckCircle size={32} className="text-green-600" />
       <p className="text-sm font-medium">已保存到 Pocket Brain</p>
-      <p className="text-xs text-muted-foreground">窗口即将关闭…</p>
+      <p className="text-xs text-muted-foreground">{isStandalone ? '即将返回首页…' : '窗口即将关闭…'}</p>
     </div>
   )
 
@@ -43,8 +60,7 @@ export default function SavePage() {
   )
 
   return (
-    <div className="flex flex-col h-screen bg-background">
-      {/* Header */}
+    <div className="flex flex-col h-[100dvh] bg-background">
       <div className="flex items-center gap-2 px-4 h-12 border-b shrink-0">
         <Logo size={24} />
         <span className="text-sm font-semibold">Pocket Brain</span>
@@ -55,7 +71,7 @@ export default function SavePage() {
         initialUrl={initUrl}
         initialTitle={initTitle}
         onSave={handleSave}
-        onCancel={() => window.close()}
+        onCancel={handleCancel}
       />
     </div>
   )

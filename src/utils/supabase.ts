@@ -106,6 +106,41 @@ export async function deleteFolder(id) {
   await rest(`/folders?id=eq.${id}`, { method: 'DELETE' })
 }
 
+// ── Storage ──
+const BUCKET = 'attachments'
+
+export async function uploadFile(file: File): Promise<string> {
+  const ext = file.name.split('.').pop() ?? 'bin'
+  const path = `${crypto.randomUUID()}.${ext}`
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': file.type || 'application/octet-stream',
+      'x-upsert': 'false',
+    },
+    body: file,
+  })
+  if (!res.ok) throw new Error(`Upload failed: ${await res.text()}`)
+  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`
+}
+
+export async function deleteFile(publicUrl: string): Promise<void> {
+  // 从公开 URL 提取路径
+  const marker = `/object/public/${BUCKET}/`
+  const idx = publicUrl.indexOf(marker)
+  if (idx === -1) return
+  const path = publicUrl.slice(idx + marker.length)
+  await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
+    method: 'DELETE',
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: 'Bearer ' + SUPABASE_KEY,
+    },
+  })
+}
+
 // ── DB mapping ──
 function itemToDb(item: Partial<BookmarkItem>): DbRow {
   const row: DbRow = {}
