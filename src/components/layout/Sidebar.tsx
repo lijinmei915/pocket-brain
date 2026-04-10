@@ -5,8 +5,9 @@ import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Inbox, BookOpen, Search, FolderOpen, Folder,
-  MoreHorizontal, Pencil, Trash2, FolderPlus, X, Download
+  Pencil, Trash2, FolderPlus, X, Download
 } from 'lucide-react'
+import { MoreButton } from '@/components/ui/MoreButton'
 import { Logo } from '@/components/ui/Logo'
 
 import {
@@ -42,9 +43,7 @@ function FolderItem({ folder, folders, items, selected, depth, onSelect, onRenam
         {count > 0 && <span className="text-xs text-muted-foreground">{count}</span>}
         <DropdownMenu>
           <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
-            <button className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-muted-foreground/20 transition-opacity">
-              <MoreHorizontal size={13} />
-            </button>
+            <MoreButton hideUntilHover />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
             <DropdownMenuItem onClick={() => onCreateSub(folder.id)}>

@@ -11,7 +11,8 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu'
-import { Plus, ExternalLink, MoreHorizontal, Trash2, Pencil, BookOpen, Video, Headphones, MessageCircle, FileText, PenLine, Inbox, Menu, FolderInput } from 'lucide-react'
+import { Plus, ExternalLink, Trash2, Pencil, BookOpen, Video, Headphones, MessageCircle, FileText, PenLine, Inbox, Menu, FolderInput } from 'lucide-react'
+import { MoreButton } from '@/components/ui/MoreButton'
 import { Badge } from '@/components/ui/badge'
 import ConfirmDialog from '@/components/features/ConfirmDialog'
 import { cn } from '@/lib/utils'
@@ -74,9 +75,7 @@ function ItemCard({ item, folders, onDelete, onEdit, onMove, folderOptions = [] 
         <div onClick={e => e.stopPropagation()}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="p-0.5 rounded hover:bg-muted shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-              <MoreHorizontal size={13} />
-            </button>
+            <MoreButton className="shrink-0" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
             {item.url && (
