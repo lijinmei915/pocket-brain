@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { DialogActions } from '@/components/ui/DialogActions'
 import { uploadFile } from '@/utils/supabase'
 
 // ── 常量 ──────────────────────────────────────────────────────────────────────
@@ -434,12 +435,12 @@ export default function SaveForm({
       </div>
 
       {/* Footer */}
-      <div className="shrink-0 border-t px-4 py-3 flex gap-2">
+      <DialogActions>
         <Button variant="outline" className="flex-1" onClick={onCancel}>取消</Button>
         <Button className="flex-1" disabled={!canSave || saving || overLimit} onClick={handleSave}>
           {saving ? <><Loader2 size={14} className="animate-spin mr-2" />保存中…</> : isEdit ? '更新' : '保存'}
         </Button>
-      </div>
+      </DialogActions>
     </>
   )
 }

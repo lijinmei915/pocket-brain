@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { DialogActions } from '@/components/ui/DialogActions'
 
 // mode: 'create' | 'rename'
 export default function FolderDialog({ open, onOpenChange, mode, currentName, onConfirm }) {
@@ -22,11 +23,11 @@ export default function FolderDialog({ open, onOpenChange, mode, currentName, on
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-sm p-0 gap-0">
+        <DialogHeader className="px-4 pt-4 pb-0">
           <DialogTitle>{mode === 'rename' ? '重命名文件夹' : '新建文件夹'}</DialogTitle>
         </DialogHeader>
-        <div className="py-2">
+        <div className="px-4 py-3">
           <Input
             className="text-sm"
             value={name}
@@ -36,12 +37,12 @@ export default function FolderDialog({ open, onOpenChange, mode, currentName, on
             onKeyDown={e => { if (e.key === 'Enter') handleSubmit() }}
           />
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>取消</Button>
-          <Button onClick={handleSubmit} disabled={!name.trim()}>
+        <DialogActions>
+          <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>取消</Button>
+          <Button className="flex-1" onClick={handleSubmit} disabled={!name.trim()}>
             {mode === 'rename' ? '确认' : '创建'}
           </Button>
-        </DialogFooter>
+        </DialogActions>
       </DialogContent>
     </Dialog>
   )
