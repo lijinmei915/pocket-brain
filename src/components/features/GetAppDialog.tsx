@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
@@ -16,6 +16,11 @@ function Step({ n, children }: { n: number; children: React.ReactNode }) {
 
 export default function GetAppDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const [tab, setTab] = useState<'bookmarklet' | 'extension' | 'pwa'>('bookmarklet')
+
+  // React 会拦截 href="javascript:..."，用 callback ref 直接写 DOM 绕过
+  const bookmarkletRef = useCallback((node: HTMLAnchorElement | null) => {
+    if (node) node.setAttribute('href', BOOKMARKLET)
+  }, [])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -58,7 +63,8 @@ export default function GetAppDialog({ open, onOpenChange }: { open: boolean; on
               {/* 拖拽目标：真实的 <a href="javascript:..."> */}
               <div className="flex justify-center pt-1">
                 <a
-                  href={BOOKMARKLET}
+                  ref={bookmarkletRef}
+                  href="#"
                   onClick={e => e.preventDefault()}
                   draggable
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-input bg-muted text-sm font-medium text-foreground cursor-grab active:cursor-grabbing select-none hover:bg-muted/70 transition-colors"

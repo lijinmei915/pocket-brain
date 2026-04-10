@@ -42,9 +42,9 @@ export default function SavePage() {
     try {
       await createItem(data)
       setStatus('done')
-      setTimeout(() => {
-        if (!dismiss()) navigate('/')
-      }, 1200)
+      if (!isStandalone) {
+        setTimeout(() => { dismiss() }, 3000)
+      }
     } catch {
       setStatus('error')
     }
@@ -58,7 +58,7 @@ export default function SavePage() {
     <div className="flex flex-col items-center justify-center h-screen gap-3 bg-background">
       <CheckCircle size={32} className="text-green-600" />
       <p className="text-sm font-medium">已保存到 Pocket Brain</p>
-      <p className="text-xs text-muted-foreground">{isStandalone ? '即将返回首页…' : '窗口即将关闭…'}</p>
+      {!isStandalone && <p className="text-xs text-muted-foreground">窗口即将关闭…</p>}
     </div>
   )
 

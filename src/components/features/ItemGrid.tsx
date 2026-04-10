@@ -183,12 +183,12 @@ export default function ItemGrid({ items, folders, loading, selectedFolder, onUp
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 md:px-8 border-b bg-background sticky top-0 z-10 h-14 shrink-0">
+      <div className="flex items-center justify-between px-4 md:px-8 border-b bg-background sticky top-0 z-10 h-14 shrink-0 overflow-hidden">
         <div className="flex items-center gap-3 min-w-0">
           <button onClick={onMobileMenuOpen} className="p-1 rounded hover:bg-muted md:hidden">
             <Menu size={18} />
           </button>
-          <h1 className="text-base font-semibold text-foreground">{sectionTitle}</h1>
+          <h1 className="text-base font-semibold text-foreground truncate">{sectionTitle}</h1>
           {!loading && (
             <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
               {items.length} 条
