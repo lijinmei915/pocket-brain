@@ -136,7 +136,7 @@ export default function Sidebar({ folders, items, selected, onSelect, onCreateFo
   const sidebarContent = (
     <>
       {/* Logo */}
-      <div className="flex items-center gap-2 px-4 border-b h-14">
+      <div className="flex items-center gap-2 px-4 border-b h-14 shrink-0">
         <Logo size={28} />
         <span className="font-semibold text-base">Pocket Brain</span>
         {/* Mobile close button */}
