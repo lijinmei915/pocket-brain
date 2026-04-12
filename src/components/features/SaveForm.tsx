@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { DialogActions } from '@/components/ui/DialogActions'
@@ -168,6 +169,21 @@ export default function SaveForm({
   const folderOptions = buildOptions(folders, folders.filter(f => !f.parentId))
   const totalSizeMB   = files.reduce((sum, f) => sum + f.size / (1024 * 1024), 0)
   const overLimit     = totalSizeMB > TOTAL_LIMIT_MB
+  const validFolderIds = new Set(folders.map(folder => folder.id))
+
+  function normalizeFolderId(value: string | null) {
+    if (!value || value === INBOX) return null
+    return validFolderIds.has(value) ? value : null
+  }
+
+  async function submitSave(data: SaveData) {
+    const payload = {
+      ...data,
+      folderId: normalizeFolderId(data.folderId ?? null),
+    }
+    console.log('[PB] save payload', payload)
+    await onSave(payload)
+  }
 
   function handleUrlChange(val: string) {
     setUrl(val)
@@ -195,38 +211,47 @@ export default function SaveForm({
   }
 
   async function handleSave() {
+    console.log('[PB] handleSave clicked', {
+      tab,
+      canSave,
+      saving,
+      overLimit,
+      url,
+      title,
+      folderId,
+    })
     setSaving(true)
     try {
       if (tab === 'note') {
         if (!content.trim()) return
-        await onSave({
+        await submitSave({
           ...(isEdit ? { id: editItem.id } : {}),
           url: null, type: 'note',
           title: content.trim().slice(0, 20) || '无标题',
           note: content.trim(),
-          folderId: folderId === INBOX ? null : folderId,
+          folderId,
         })
       } else if (tab === 'file') {
         if (files.length === 0) return
         setUploadError(null)
         for (const file of files) {
           const publicUrl = await uploadFile(file)
-          await onSave({
+          await submitSave({
             url: publicUrl,
             title: fileTitle.trim() || file.name,
             type: 'file',
             note: '',
-            folderId: folderId === INBOX ? null : folderId,
+            folderId,
           })
         }
       } else {
         if (!url.trim()) return
-        await onSave({
+        await submitSave({
           ...(isEdit ? { id: editItem.id } : {}),
           url: url.trim(),
           title: title.trim() || '无标题',
           type, note: note.trim(),
-          folderId: folderId === INBOX ? null : folderId,
+          folderId,
         })
       }
     } finally {
@@ -250,7 +275,7 @@ export default function SaveForm({
         {!isEdit && (
           <div className="flex gap-1 bg-muted rounded-lg p-1 shrink-0">
             {(['bookmark', 'note', 'file'] as const).map(t => (
-              <button key={t} onClick={() => setTab(t)}
+              <button key={t} type="button" onClick={() => setTab(t)}
                 className={cn(
                   'flex-1 text-xs font-medium py-1.5 rounded-md transition-colors',
                   tab === t ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
@@ -311,7 +336,7 @@ export default function SaveForm({
                   const Icon = t.icon
                   const selected = type === t.value
                   return (
-                    <button key={t.value} onClick={() => { setType(t.value); setTypeTouched(true) }}
+                    <button key={t.value} type="button" onClick={() => { setType(t.value); setTypeTouched(true) }}
                       className={cn(
                         'inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors border-0',
                         selected ? t.cls : 'bg-[var(--bg-secondary)] text-[var(--text-disabled)] hover:text-[var(--text-secondary)]'
@@ -330,11 +355,11 @@ export default function SaveForm({
         {/* ── 记录 tab ── */}
         {tab === 'note' && (
           <div className="flex flex-col border border-input rounded-md overflow-hidden bg-transparent" style={{ height: '300px' }}>
-            <textarea
+            <Textarea
               placeholder="记录想法、摘录、代码片段…"
               value={content} maxLength={1000}
               onChange={e => setContent(e.target.value)} autoFocus
-              className="flex-1 resize-none overflow-y-auto p-3 text-sm outline-none bg-transparent placeholder:text-muted-foreground"
+              className="min-h-0 flex-1 resize-none overflow-y-auto rounded-none border-0 px-3 py-3 text-sm shadow-none focus-visible:border-transparent focus-visible:ring-0"
             />
             <div className="border-t border-input px-3 py-1.5 shrink-0 text-right">
               <span className={cn('text-[11px]', content.length >= 1000 ? 'text-destructive' : 'text-muted-foreground')}>
@@ -377,7 +402,7 @@ export default function SaveForm({
                           <p className="text-xs font-medium truncate">{f.name}</p>
                           <p className="text-[10px] text-muted-foreground">{formatFileSize(f.size)}</p>
                         </div>
-                        <button onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))}
+                        <button type="button" onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))}
                           className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0">
                           <X size={12} />
                         </button>
@@ -425,10 +450,10 @@ export default function SaveForm({
         {tab === 'bookmark' && (
           <div>
             <label className="text-sm font-medium block mb-1">备注</label>
-            <textarea
+            <Textarea
               placeholder="添加备注…" value={note}
               onChange={e => setNote(e.target.value)} rows={3}
-              className="w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary"
+              className="resize-none text-sm"
             />
           </div>
         )}
@@ -436,8 +461,8 @@ export default function SaveForm({
 
       {/* Footer */}
       <DialogActions>
-        <Button variant="outline" className="flex-1" onClick={onCancel}>取消</Button>
-        <Button className="flex-1" disabled={!canSave || saving || overLimit} onClick={handleSave}>
+        <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>取消</Button>
+        <Button type="button" className="flex-1" disabled={!canSave || saving || overLimit} onClick={handleSave}>
           {saving ? <><Loader2 size={14} className="animate-spin mr-2" />保存中…</> : isEdit ? '更新' : '保存'}
         </Button>
       </DialogActions>

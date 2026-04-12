@@ -272,6 +272,7 @@
     </div>
     <div class="tree-group">
       <div class="tree-group-label">Components</div>
+      <a class="tree-item" onclick="showSection('component-index')">组件目录</a>
       <a class="tree-item" onclick="showSection('buttons')">按钮</a>
       <a class="tree-item" onclick="showSection('badges')">标签</a>
       <a class="tree-item" onclick="showSection('forms')">表单</a>
@@ -381,6 +382,42 @@
           <li><code class="inline">w-56</code>（Sidebar）和 <code class="inline">h-14</code>（Header）在多处硬编码，修改需同步 <code class="inline">Sidebar.tsx</code> 和 <code class="inline">ItemGrid.tsx</code></li>
           <li>移动端 Sidebar 通过 Sheet 抽屉展示（<code class="inline">fixed inset-0 z-50</code>），汉堡菜单按钮加 <code class="inline">md:hidden</code></li>
         </ul>
+      </div>
+    </section>
+
+    <!-- Component Index -->
+    <section class="section" id="component-index">
+      <div class="section-head">
+        <div class="section-title">组件目录</div>
+        <span class="doc-ref">docs/design/</span>
+      </div>
+      <p class="spec-note" style="margin-bottom:16px">每个共享 UI 组件对应一个规范文件。新增组件时同步更新此表。</p>
+      <table class="spec-table">
+        <thead>
+          <tr>
+            <th>组件</th>
+            <th>源文件</th>
+            <th>规范文件</th>
+            <th>使用位置</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>MoreButton</code></td>
+            <td><code>src/components/ui/MoreButton.tsx</code></td>
+            <td><code>docs/design/more-button.md</code></td>
+            <td>ItemGrid（卡片）、Sidebar（文件夹）</td>
+          </tr>
+          <tr>
+            <td><code>DialogActions</code></td>
+            <td><code>src/components/ui/DialogActions.tsx</code></td>
+            <td><code>docs/design/dialog-actions.md</code></td>
+            <td>FolderDialog、SaveForm</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="spec-block">
+        <p class="spec-note"><strong>维护规则</strong>：新增共享组件时，同时更新这张表和 <code>CLAUDE.md</code> 的改动前触发规则。规范文件统一放 <code>docs/design/</code>，一个组件一个文件。</p>
       </div>
     </section>
 

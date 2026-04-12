@@ -15,7 +15,7 @@ export const MoreButton = forwardRef<
     {...props}
     className={cn(
       'p-0.5 rounded text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-      hideUntilHover && 'opacity-0 group-hover:opacity-100 transition-opacity',
+      hideUntilHover && 'opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100 data-[state=open]:bg-muted data-[state=open]:text-foreground transition-opacity',
       className
     )}
   >

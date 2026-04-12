@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { FormDialog } from '@/components/ui/FormDialog'
 import SaveForm from '@/components/features/SaveForm'
 
 export default function AddItemDialog({ open, onOpenChange, folders, onSave, defaultFolderId, editItem }) {
@@ -10,22 +10,17 @@ export default function AddItemDialog({ open, onOpenChange, folders, onSave, def
   }, [open])
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[80vh] flex flex-col p-0 gap-0">
-        <DialogHeader className="px-4 pt-4 pb-0 shrink-0">
-          <DialogTitle>{editItem ? '编辑' : '添加'}</DialogTitle>
-        </DialogHeader>
-        <SaveForm
-          key={formKey}
-          folders={folders}
-          initialUrl={editItem?.url ?? ''}
-          initialTitle={editItem?.title ?? ''}
-          defaultFolderId={editItem?.folderId ?? defaultFolderId}
-          editItem={editItem}
-          onSave={onSave}
-          onCancel={() => onOpenChange(false)}
-        />
-      </DialogContent>
-    </Dialog>
+    <FormDialog open={open} onOpenChange={onOpenChange} title={editItem ? '编辑' : '添加'}>
+      <SaveForm
+        key={formKey}
+        folders={folders}
+        initialUrl={editItem?.url ?? ''}
+        initialTitle={editItem?.title ?? ''}
+        defaultFolderId={editItem?.folderId ?? defaultFolderId}
+        editItem={editItem}
+        onSave={onSave}
+        onCancel={() => onOpenChange(false)}
+      />
+    </FormDialog>
   )
 }

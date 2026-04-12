@@ -24,6 +24,7 @@ export default function SavePage() {
   const [folders,       setFolders]       = useState([])
   const [status,        setStatus]        = useState<'form' | 'done' | 'error'>('form')
   const [resolvedTitle, setResolvedTitle] = useState(initTitle)
+  const [errorMessage,  setErrorMessage]  = useState('')
 
   useEffect(() => {
     fetchFolders().then(setFolders).catch(console.error)
@@ -41,11 +42,14 @@ export default function SavePage() {
   async function handleSave(data) {
     try {
       await createItem(data)
+      setErrorMessage('')
       setStatus('done')
       if (!isStandalone) {
         setTimeout(() => { dismiss() }, 3000)
       }
-    } catch {
+    } catch (err) {
+      console.error('[PB] save page error:', err)
+      setErrorMessage(err instanceof Error ? err.message : '未知错误')
       setStatus('error')
     }
   }
@@ -65,6 +69,7 @@ export default function SavePage() {
   if (status === 'error') return (
     <div className="flex flex-col items-center justify-center h-screen gap-3 bg-background">
       <p className="text-sm text-destructive">保存失败，请重试</p>
+      {errorMessage && <p className="max-w-sm px-6 text-center text-xs text-muted-foreground break-all">{errorMessage}</p>}
       <Button size="sm" variant="outline" onClick={() => setStatus('form')}>返回</Button>
     </div>
   )

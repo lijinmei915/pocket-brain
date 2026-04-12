@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "gen-icons": "node scripts/gen-icons.mjs"
+    "gen-icons": "node scripts/gen-icons.mjs",
+    "validate:classifier": "node scripts/validate-classifier.mjs"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.8",

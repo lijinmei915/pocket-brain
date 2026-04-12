@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { FormDialog } from '@/components/ui/FormDialog'
 import { DialogActions } from '@/components/ui/DialogActions'
 
 // mode: 'create' | 'rename'
 export default function FolderDialog({ open, onOpenChange, mode, currentName, onConfirm }) {
   const [name, setName] = useState('')
+  const inputId = 'folder-name'
 
   useEffect(() => {
     if (open) {
@@ -22,17 +23,24 @@ export default function FolderDialog({ open, onOpenChange, mode, currentName, on
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm p-0 gap-0">
-        <DialogHeader className="px-4 pt-4 pb-0">
-          <DialogTitle>{mode === 'rename' ? '重命名文件夹' : '新建文件夹'}</DialogTitle>
-        </DialogHeader>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={mode === 'rename' ? '重命名文件夹' : '新建文件夹'}
+      className="sm:max-w-sm"
+    >
         <div className="px-4 py-3">
+          <label htmlFor={inputId} className="mb-1 block text-sm font-medium">
+            文件夹名称
+          </label>
           <Input
+            id={inputId}
+            name="folderName"
             className="text-sm"
             value={name}
             onChange={e => setName(e.target.value)}
             placeholder="文件夹名称"
+            autoComplete="off"
             autoFocus
             onKeyDown={e => { if (e.key === 'Enter') handleSubmit() }}
           />
@@ -43,7 +51,6 @@ export default function FolderDialog({ open, onOpenChange, mode, currentName, on
             {mode === 'rename' ? '确认' : '创建'}
           </Button>
         </DialogActions>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   )
 }

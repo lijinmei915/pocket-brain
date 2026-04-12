@@ -29,7 +29,7 @@ const TYPE_CONFIG = {
 function getFavicon(url) {
   try {
     const domain = new URL(url).hostname
-    return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`
+    return `https://${domain}/favicon.ico`
   } catch {
     return null
   }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { Editor } from '@tiptap/core'
+import { useEditorState } from '@tiptap/react'
 import { BubbleMenu } from '@tiptap/react/menus'
 import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough,
@@ -56,13 +57,32 @@ export default function EditorBubbleMenu({ editor }: { editor: Editor }) {
   const [openPanel, setOpenPanel] = useState<'heading' | 'text-color' | 'bg' | null>(null)
   const togglePanel = (p: typeof openPanel) => setOpenPanel(v => v === p ? null : p)
 
-  // 订阅 editor transactions，让 isActive() 保持响应式
-  const [, setTick] = useState(0)
-  useEffect(() => {
-    const update = () => setTick(t => t + 1)
-    editor.on('transaction', update)
-    return () => editor.off('transaction', update)
-  }, [editor])
+  // 用 Tiptap v3 官方 hook 响应式读取 editor 状态，替代手动 on('transaction') + setTick
+  const editorState = useEditorState({
+    editor,
+    selector: (ctx) => {
+      const e = ctx.editor
+      const $from = e.state.selection.$from
+      const attrs = e.getAttributes('textStyle')
+      const hl: number | null =
+        $from.parent.type.name === 'heading' ? ($from.parent.attrs.level as number) : null
+      const fs = (attrs as any).fontSize as string | undefined
+      return {
+        isBold: e.isActive('bold'),
+        isItalic: e.isActive('italic'),
+        isUnderline: e.isActive('underline'),
+        isStrike: e.isActive('strike'),
+        isBulletList: e.isActive('bulletList'),
+        isOrderedList: e.isActive('orderedList'),
+        currentTextColor: attrs.color as string | undefined,
+        currentBgColor: attrs.backgroundColor as string | undefined,
+        headingLevel: hl,
+        currentFontSize: fs,
+        displayLevel: hl !== null ? hl : fs === '1.5rem' ? 1 : fs === '1.2rem' ? 2 : null,
+        inList: $from.depth >= 2 && $from.node($from.depth - 1)?.type.name === 'listItem',
+      }
+    },
+  })
 
   useEffect(() => {
     const close = () => setOpenPanel(null)
@@ -75,22 +95,7 @@ export default function EditorBubbleMenu({ editor }: { editor: Editor }) {
     }
   }, [editor])
 
-  const currentTextColor = editor.getAttributes('textStyle').color
-  const currentBgColor   = editor.getAttributes('textStyle').backgroundColor
-
-  // 直接读 ProseMirror state，绕开 Tiptap v3 isActive 在非空选区的边界行为
-  const $from = editor.state.selection.$from
-  const headingLevel: number | null =
-    $from.parent.type.name === 'heading' ? ($from.parent.attrs.level as number) : null
-
-  // 在列表内时节点类型是 listItem，headingLevel 始终为 null；
-  // 通过 fontSize mark 判断"模拟标题级别"，用于按钮显示和 active 态
-  const currentFontSize = (editor.getAttributes('textStyle') as any).fontSize as string | undefined
-  const displayLevel: number | null =
-    headingLevel !== null ? headingLevel
-    : currentFontSize === '1.5rem' ? 1
-    : currentFontSize === '1.2rem' ? 2
-    : null
+  const { currentTextColor, currentBgColor, headingLevel, displayLevel, inList } = editorState
 
   // 在 heading 内切换列表时，先把 heading 的视觉 mark 打上，
   // 节点类型转换后 mark 会保留，实现"视觉共存"
@@ -104,7 +109,6 @@ export default function EditorBubbleMenu({ editor }: { editor: Editor }) {
 
   // 切换标题时：清除残留的 fontSize mark，避免 mark 覆盖 CSS 字号
   // 在列表内时：用 mark 模拟标题视觉，保留列表结构
-  const inList = $from.depth >= 2 && $from.node($from.depth - 1)?.type.name === 'listItem'
   const handleHeadingToggle = (level: 1 | 2 | 3) => {
     const chain = (editor.chain().focus() as any)
     if (inList) {
@@ -134,16 +138,16 @@ export default function EditorBubbleMenu({ editor }: { editor: Editor }) {
       <div className="flex items-center gap-0.5 bg-background border border-border rounded-lg shadow-md px-1 py-1">
 
         {/* 组1：B I U S */}
-        <ToolbarBtn title="加粗" active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}>
+        <ToolbarBtn title="加粗" active={editorState.isBold} onClick={() => editor.chain().focus().toggleBold().run()}>
           <Bold size={14} />
         </ToolbarBtn>
-        <ToolbarBtn title="斜体" active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}>
+        <ToolbarBtn title="斜体" active={editorState.isItalic} onClick={() => editor.chain().focus().toggleItalic().run()}>
           <Italic size={14} />
         </ToolbarBtn>
-        <ToolbarBtn title="下划线" active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()}>
+        <ToolbarBtn title="下划线" active={editorState.isUnderline} onClick={() => editor.chain().focus().toggleUnderline().run()}>
           <UnderlineIcon size={14} />
         </ToolbarBtn>
-        <ToolbarBtn title="删除线" active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()}>
+        <ToolbarBtn title="删除线" active={editorState.isStrike} onClick={() => editor.chain().focus().toggleStrike().run()}>
           <Strikethrough size={14} />
         </ToolbarBtn>
 
@@ -172,10 +176,10 @@ export default function EditorBubbleMenu({ editor }: { editor: Editor }) {
             </ToolbarBtn>
           </>
         )}
-        <ToolbarBtn title="无序列表" active={editor.isActive('bulletList')} onClick={() => handleListToggle('bullet')}>
+        <ToolbarBtn title="无序列表" active={editorState.isBulletList} onClick={() => handleListToggle('bullet')}>
           <List size={14} />
         </ToolbarBtn>
-        <ToolbarBtn title="有序列表" active={editor.isActive('orderedList')} onClick={() => handleListToggle('ordered')}>
+        <ToolbarBtn title="有序列表" active={editorState.isOrderedList} onClick={() => handleListToggle('ordered')}>
           <ListOrdered size={14} />
         </ToolbarBtn>
 

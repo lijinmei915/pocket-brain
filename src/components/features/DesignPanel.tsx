@@ -625,7 +625,7 @@ function readCurrentTokens(): typeof DESIGN_TOKENS {
 }
 
 export default function DesignPanel() {
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(false)
   const [tab, setTab] = useState('tokens')
   const [designTokens, setDesignTokens] = useState(() => readCurrentTokens())
   const [saveStatus, setSaveStatus] = useState('idle')

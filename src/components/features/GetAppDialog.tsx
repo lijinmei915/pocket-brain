@@ -2,8 +2,8 @@ import { useState, useCallback } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
-const APP_URL = 'https://pocket-brain-blush.vercel.app'
-const BOOKMARKLET = `javascript:(function(){var u=encodeURIComponent(location.href),t=encodeURIComponent(document.title);window.open('${APP_URL}/save?url='+u+'&title='+t,'pbsave','width=360,height=560,toolbar=0,menubar=0,scrollbars=1')})();`
+const APP_URL = typeof window !== 'undefined' ? window.location.origin : 'https://pocket-brain-blush.vercel.app'
+const BOOKMARKLET = `javascript:(function(){var a='${APP_URL}',u=encodeURIComponent(location.href),t=encodeURIComponent(document.title),s=a+'/save?url='+u+'&title='+t,w=window.open(s,'pbsave','width=360,height=560,toolbar=0,menubar=0,scrollbars=1');if(!w)location.href=s;})();`
 
 function Step({ n, children }: { n: number; children: React.ReactNode }) {
   return (
@@ -32,18 +32,18 @@ export default function GetAppDialog({ open, onOpenChange }: { open: boolean; on
         {/* Tab switcher */}
         <div className="px-4 pt-3 shrink-0">
           <div className="flex gap-1 bg-muted rounded-lg p-1">
-            {([
-              { key: 'bookmarklet', label: '书签栏' },
-              { key: 'extension',  label: 'Chrome 扩展' },
-              { key: 'pwa',        label: '手机 PWA' },
-            ] as const).map(t => (
-              <button key={t.key} onClick={() => setTab(t.key)}
-                className={cn(
-                  'flex-1 text-xs font-medium py-1.5 rounded-md transition-colors',
+              {([
+                { key: 'bookmarklet', label: '书签栏' },
+                { key: 'extension',  label: 'Chrome 扩展' },
+                { key: 'pwa',        label: '手机 PWA' },
+              ] as const).map(t => (
+                <button key={t.key} onClick={() => setTab(t.key)}
+                  className={cn(
+                  'flex-1 rounded-md py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                   tab === t.key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                 )}
-              >
-                {t.label}
+                >
+                  {t.label}
               </button>
             ))}
           </div>
@@ -93,7 +93,7 @@ export default function GetAppDialog({ open, onOpenChange }: { open: boolean; on
 
           {tab === 'pwa' && (
             <>
-              <Step n={1}>用手机浏览器打开 <span className="text-primary font-medium">pocket-brain-blush.vercel.app</span>。</Step>
+              <Step n={1}>用手机浏览器打开 <span className="text-primary font-medium">{APP_URL.replace(/^https?:\/\//, '')}</span>。</Step>
               <Step n={2}>iOS Safari：点击底部分享按钮 → 「添加到主屏幕」。</Step>
               <Step n={3}>Android Chrome：点击右上角菜单 → 「添加到主屏幕」或「安装应用」。</Step>
               <Step n={4}>安装后从主屏幕打开，系统分享时选择「Pocket Brain」即可保存内容。</Step>

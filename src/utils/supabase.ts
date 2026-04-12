@@ -8,9 +8,7 @@ export interface BookmarkItem {
   thumbnail: string
   source?: string
   folderId?: string | null
-  folderid?: string | null
   summary?: string
-  createdat?: string
 }
 
 type DbRow = Record<string, unknown>
@@ -32,6 +30,13 @@ async function rest(path: string, options: RestOptions = {}) {
   })
   if (!res.ok) {
     const msg = await res.text()
+    const requestBody = typeof options.body === 'string' ? options.body : ''
+    console.error('[PB] Supabase request failed', {
+      path,
+      status: res.status,
+      body: requestBody,
+      response: msg,
+    })
     throw new Error(`Supabase error ${res.status}: ${msg}`)
   }
   // 204 No Content
@@ -41,7 +46,7 @@ async function rest(path: string, options: RestOptions = {}) {
 
 // ── Items ──
 export async function fetchItems() {
-  const data = await rest('/items?select=*&order=createdat.desc')
+  const data = await rest('/items?select=*&order=created_at.desc')
   return (data || []).map(itemFromDb)
 }
 
@@ -54,7 +59,7 @@ export async function createItem(item) {
   const data = await rest('/items?select=*', {
     method: 'POST',
     headers: { Prefer: 'return=representation' },
-    body: JSON.stringify({ id: crypto.randomUUID(), createdat: Date.now(), ...itemToDb(item) }),
+    body: JSON.stringify({ id: crypto.randomUUID(), ...itemToDb(item) }),
   })
   return itemFromDb(Array.isArray(data) ? data[0] : data)
 }
@@ -74,7 +79,7 @@ export async function deleteItem(id) {
 
 // ── Folders ──
 export async function fetchFolders() {
-  const data = await rest('/folders?select=*&order=createdat.asc')
+  const data = await rest('/folders?select=*&order=created_at.asc')
   return (data || []).map(folderFromDb)
 }
 
@@ -82,7 +87,7 @@ export async function createFolder(name, parentId = null) {
   const data = await rest('/folders?select=*', {
     method: 'POST',
     headers: { Prefer: 'return=representation' },
-    body: JSON.stringify({ name, parentid: parentId || null }),
+    body: JSON.stringify({ name, parent_id: parentId || null }),
   })
   return folderFromDb(Array.isArray(data) ? data[0] : data)
 }
@@ -98,10 +103,10 @@ export async function renameFolder(id, name) {
 
 export async function deleteFolder(id) {
   // Move items in this folder to inbox
-  await rest(`/items?folderid=eq.${id}`, {
+  await rest(`/items?folder_id=eq.${id}`, {
     method: 'PATCH',
     headers: { Prefer: 'return=representation' },
-    body: JSON.stringify({ folderid: null }),
+    body: JSON.stringify({ folder_id: null }),
   })
   await rest(`/folders?id=eq.${id}`, { method: 'DELETE' })
 }
@@ -151,7 +156,7 @@ function itemToDb(item: Partial<BookmarkItem>): DbRow {
   if (item.tags !== undefined) row.tags = item.tags
   if (item.thumbnail !== undefined) row.thumbnail = item.thumbnail
   if (item.source !== undefined) row.source = item.source
-  if (item.folderId !== undefined) row.folderid = item.folderId || null
+  if (item.folderId !== undefined) row.folder_id = item.folderId || null
   if (item.summary !== undefined) row.summary = item.summary
   return row
 }
@@ -166,9 +171,9 @@ function itemFromDb(row: DbRow) {
     tags: row.tags || [],
     thumbnail: row.thumbnail || '',
     source: row.source || '',
-    folderId: row.folderid || null,
+    folderId: row.folder_id || null,
     summary: row.summary || '',
-    createdAt: row.createdat,
+    createdAt: row.created_at,
   }
 }
 
@@ -176,7 +181,7 @@ function folderFromDb(row) {
   return {
     id: row.id,
     name: row.name,
-    parentId: row.parentid || null,
-    createdAt: row.createdat,
+    parentId: row.parent_id || null,
+    createdAt: row.created_at,
   }
 }

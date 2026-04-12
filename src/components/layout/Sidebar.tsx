@@ -52,7 +52,7 @@ function FolderItem({ folder, folders, items, selected, depth, onSelect, onRenam
             <DropdownMenuItem onClick={() => onRename(folder.id, folder.name)}>
               <Pencil size={13} className="mr-2" /> 重命名
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onDelete(folder.id)} className="text-destructive">
+            <DropdownMenuItem onClick={() => onDelete(folder.id)} variant="destructive">
               <Trash2 size={13} className="mr-2" /> 删除文件夹
             </DropdownMenuItem>
           </DropdownMenuContent>

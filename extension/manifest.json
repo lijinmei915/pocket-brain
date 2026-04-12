@@ -18,6 +18,9 @@
   },
   "permissions": ["activeTab", "windows"],
   "host_permissions": [
-    "https://clujgrcidguwgufqekve.supabase.co/*"
+    "https://clujgrcidguwgufqekve.supabase.co/*",
+    "http://localhost:5173/*",
+    "http://127.0.0.1:5173/*",
+    "https://pocket-brain-blush.vercel.app/*"
   ]
 }

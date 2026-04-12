@@ -40,7 +40,7 @@ const BOOKMARK_TYPES = [
 function getFavicon(url) {
   try {
     const domain = new URL(url).hostname
-    return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`
+    return `https://${domain}/favicon.ico`
   } catch { return null }
 }
 
@@ -90,12 +90,12 @@ export default function ItemDetailPage() {
       .finally(() => setLoading(false))
   }, [id])
 
-  // Sync editor content when item or editor becomes ready
+  // Sync editor content when item loads (only on item change, not editor state change)
   useEffect(() => {
     if (item?.note && editor && !isEditing) {
       editor.commands.setContent(toEditorContent(item.note))
     }
-  }, [item, editor])
+  }, [item?.id])
 
 
   function startEdit() {
