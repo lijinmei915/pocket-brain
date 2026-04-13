@@ -1,14 +1,24 @@
+export interface ItemTag {
+  id: string
+  name: string
+  type: 'content' | 'status' | 'source'
+  appliedBy: 'ai' | 'user'
+}
+
 export interface BookmarkItem {
   id?: string
   title: string
   url?: string | null
   type: string
   note: string
-  tags: string[]
+  tags: ItemTag[]
   thumbnail: string
   source?: string
   folderId?: string | null
   summary?: string
+  categoryId?: string | null
+  confidence?: 'high' | 'medium' | 'low' | null
+  aiStatus?: string | null
 }
 
 type DbRow = Record<string, unknown>
@@ -46,12 +56,24 @@ async function rest(path: string, options: RestOptions = {}) {
 
 // ── Items ──
 export async function fetchItems() {
-  const data = await rest('/items?select=*&order=created_at.desc')
+  let data
+  try {
+    data = await rest('/items?select=*,item_tags(applied_by,tags(id,name,type))&order=created_at.desc')
+  } catch (error) {
+    console.warn('[PB] fetchItems fallback to legacy schema:', error)
+    data = await rest('/items?select=*&order=created_at.desc')
+  }
   return (data || []).map(itemFromDb)
 }
 
 export async function fetchItem(id: string) {
-  const data = await rest(`/items?id=eq.${id}&select=*`)
+  let data
+  try {
+    data = await rest(`/items?id=eq.${id}&select=*,item_tags(applied_by,tags(id,name,type))`)
+  } catch (error) {
+    console.warn('[PB] fetchItem fallback to legacy schema:', error)
+    data = await rest(`/items?id=eq.${id}&select=*`)
+  }
   return data?.[0] ? itemFromDb(data[0]) : null
 }
 
@@ -153,11 +175,12 @@ function itemToDb(item: Partial<BookmarkItem>): DbRow {
   if (item.url !== undefined) row.url = item.url
   if (item.type !== undefined) row.type = item.type
   if (item.note !== undefined) row.note = item.note
-  if (item.tags !== undefined) row.tags = item.tags
   if (item.thumbnail !== undefined) row.thumbnail = item.thumbnail
   if (item.source !== undefined) row.source = item.source
   if (item.folderId !== undefined) row.folder_id = item.folderId || null
   if (item.summary !== undefined) row.summary = item.summary
+  if (item.categoryId !== undefined) row.category_id = item.categoryId
+  if (item.aiStatus !== undefined) row.ai_status = item.aiStatus
   return row
 }
 
@@ -168,13 +191,50 @@ function itemFromDb(row: DbRow) {
     url: row.url || '',
     type: row.type || 'article',
     note: row.note || '',
-    tags: row.tags || [],
+    tags: normalizeItemTags(row.item_tags, row.tags),
     thumbnail: row.thumbnail || '',
     source: row.source || '',
     folderId: row.folder_id || null,
     summary: row.summary || '',
+    categoryId: row.category_id || null,
+    confidence: row.confidence || null,
+    aiStatus: row.ai_status || null,
     createdAt: row.created_at,
   }
+}
+
+function normalizeItemTags(itemTagRows: unknown, legacyTags: unknown): ItemTag[] {
+  if (Array.isArray(itemTagRows)) {
+    const result: ItemTag[] = []
+    const seen = new Set<string>()
+
+    for (const relation of itemTagRows) {
+      const rawTag = Array.isArray(relation?.tags) ? relation.tags[0] : relation?.tags
+      const id = typeof rawTag?.id === 'string' ? rawTag.id : null
+      const name = String(rawTag?.name || '').trim()
+      const type = String(rawTag?.type || '').trim().toLowerCase()
+      if (!id || !name || !['content', 'status', 'source'].includes(type)) continue
+
+      const appliedBy = relation?.applied_by === 'user' ? 'user' : 'ai'
+      const key = `${id}:${appliedBy}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      result.push({ id, name, type: type as ItemTag['type'], appliedBy })
+    }
+
+    return result
+  }
+
+  return Array.isArray(legacyTags)
+    ? legacyTags
+        .filter(tag => typeof tag === 'string' && tag.trim())
+        .map((tag, index) => ({
+          id: `legacy-${index}-${tag}`,
+          name: tag,
+          type: 'content' as const,
+          appliedBy: 'ai' as const,
+        }))
+    : []
 }
 
 function folderFromDb(row) {

@@ -26,6 +26,12 @@ const TYPE_CONFIG = {
   note:    { icon: PenLine,       label: '随手记', cls: 'component-tag-note'    },
 }
 
+const TAG_TYPE_STYLES = {
+  content: 'bg-muted/55 text-foreground border-border/70',
+  status: 'bg-primary/8 text-primary border-primary/15',
+  source: 'bg-secondary text-secondary-foreground border-border/60',
+}
+
 function getFavicon(url) {
   try {
     const domain = new URL(url).hostname
@@ -40,11 +46,23 @@ function getDomain(url) {
   catch { return url }
 }
 
+function getVisibleTags(tags = []) {
+  const priority = { user: 0, ai: 1, content: 0, status: 1, source: 2 }
+  return [...tags]
+    .sort((a, b) => {
+      const appliedDiff = (priority[a.appliedBy] ?? 9) - (priority[b.appliedBy] ?? 9)
+      if (appliedDiff !== 0) return appliedDiff
+      return (priority[a.type] ?? 9) - (priority[b.type] ?? 9)
+    })
+    .slice(0, 3)
+}
+
 function ItemCard({ item, folders, onDelete, onEdit, onMove, folderOptions = [] }) {
   const navigate = useNavigate()
   const typeConf = TYPE_CONFIG[item.type] ?? TYPE_CONFIG.other
   const TypeIcon = typeConf.icon
   const favicon = getFavicon(item.url)
+  const visibleTags = getVisibleTags(item.tags || [])
 
   const date = item.createdAt ? new Date(item.createdAt).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : ''
 
@@ -121,6 +139,31 @@ function ItemCard({ item, folders, onDelete, onEdit, onMove, folderOptions = [] 
         </Badge>
         <span className="text-[10px] text-muted-foreground">{date}</span>
       </div>
+
+      {(item.summary || visibleTags.length > 0) && (
+        <div className="space-y-2">
+          {item.summary && (
+            <p className="text-xs leading-5 text-muted-foreground line-clamp-2">
+              {item.summary}
+            </p>
+          )}
+          {visibleTags.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {visibleTags.map(tag => (
+                <span
+                  key={`${item.id}-${tag.id}-${tag.appliedBy}`}
+                  className={cn(
+                    'inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] leading-none',
+                    TAG_TYPE_STYLES[tag.type] ?? TAG_TYPE_STYLES.content
+                  )}
+                >
+                  {tag.name}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -137,7 +180,7 @@ function EmptyState({ selectedFolder, onAdd }) {
           {selectedFolder === 'inbox' ? '用浏览器扩展或点下方按钮开始收藏' : '这个文件夹还是空的'}
         </p>
       </div>
-      <Button onClick={onAdd} size="sm" className="gap-1.5">
+      <Button onClick={onAdd} size="default">
         <Plus size={14} /> 添加第一条
       </Button>
     </div>
@@ -194,8 +237,8 @@ export default function ItemGrid({ items, folders, loading, selectedFolder, onUp
             </span>
           )}
         </div>
-        <Button onClick={onAdd} size="sm" className="gap-1.5 h-8 text-xs">
-          <Plus size={13} /> 添加
+        <Button onClick={onAdd} size="default">
+          <Plus size={14} /> 添加
         </Button>
       </div>
 

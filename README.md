@@ -34,7 +34,7 @@
 
 ```bash
 npm install
-cp .env.example .env.local   # 填入 Supabase 和 Gemini API Key
+cp .env.example .env.local   # 填入 Supabase 和 Qwen API Key
 npm run dev
 ```
 
@@ -43,5 +43,7 @@ npm run dev
 ```
 VITE_SUPABASE_URL=
 VITE_SUPABASE_KEY=
-GEMINI_API_KEY=
+QWEN_API_KEY=
+QWEN_MODEL=qwen3.6-plus
+QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 ```

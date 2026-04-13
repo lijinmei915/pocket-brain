@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle } from 'lucide-react'
+import { CheckCircle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { DialogFooter } from '@/components/ui/DialogShell'
 import { Logo } from '@/components/ui/Logo'
-import { createItem, fetchFolders } from '@/utils/supabase'
+import { fetchFolders } from '@/utils/supabase'
+import { createItemWithClassification } from '@/utils/item-service'
 import SaveForm from '@/components/features/SaveForm'
 
 // PWA standalone 模式下 window.close() 无效，改为跳回首页
@@ -41,7 +43,7 @@ export default function SavePage() {
 
   async function handleSave(data) {
     try {
-      await createItem(data)
+      await createItemWithClassification(data)
       setErrorMessage('')
       setStatus('done')
       if (!isStandalone) {
@@ -87,6 +89,14 @@ export default function SavePage() {
         initialTitle={resolvedTitle}
         onSave={handleSave}
         onCancel={handleCancel}
+        renderFooter={({ canSave, saving, overLimit, isEdit, onSave, onCancel }) => (
+          <DialogFooter className="rounded-none border-b-0">
+            <Button type="button" variant="outline" onClick={onCancel}>取消</Button>
+            <Button type="button" disabled={!canSave || saving || overLimit} onClick={onSave}>
+              {saving ? <><Loader2 size={14} className="animate-spin mr-2" />保存中…</> : isEdit ? '更新' : '保存'}
+            </Button>
+          </DialogFooter>
+        )}
       />
     </div>
   )

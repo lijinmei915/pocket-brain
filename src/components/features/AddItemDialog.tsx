@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
-import { FormDialog } from '@/components/ui/FormDialog'
+import { Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { DialogFooter, DialogShell } from '@/components/ui/DialogShell'
 import SaveForm from '@/components/features/SaveForm'
 
 export default function AddItemDialog({ open, onOpenChange, folders, onSave, defaultFolderId, editItem }) {
@@ -10,7 +12,7 @@ export default function AddItemDialog({ open, onOpenChange, folders, onSave, def
   }, [open])
 
   return (
-    <FormDialog open={open} onOpenChange={onOpenChange} title={editItem ? '编辑' : '添加'}>
+    <DialogShell open={open} onOpenChange={onOpenChange} title={editItem ? '编辑' : '添加'}>
       <SaveForm
         key={formKey}
         folders={folders}
@@ -20,7 +22,15 @@ export default function AddItemDialog({ open, onOpenChange, folders, onSave, def
         editItem={editItem}
         onSave={onSave}
         onCancel={() => onOpenChange(false)}
+        renderFooter={({ canSave, saving, overLimit, isEdit, onSave, onCancel }) => (
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onCancel}>取消</Button>
+            <Button type="button" disabled={!canSave || saving || overLimit} onClick={onSave}>
+              {saving ? <><Loader2 size={14} className="animate-spin mr-2" />保存中…</> : isEdit ? '更新' : '保存'}
+            </Button>
+          </DialogFooter>
+        )}
       />
-    </FormDialog>
+    </DialogShell>
   )
 }

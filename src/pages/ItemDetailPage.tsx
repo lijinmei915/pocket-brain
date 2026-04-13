@@ -15,7 +15,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { fetchItem, fetchFolders, updateItem, deleteItem } from '@/utils/supabase'
+import { fetchItem, fetchFolders, deleteItem } from '@/utils/supabase'
+import { updateItemWithClassification } from '@/utils/item-service'
 import ConfirmDialog from '@/components/features/ConfirmDialog'
 import { cn } from '@/lib/utils'
 
@@ -37,6 +38,18 @@ const BOOKMARK_TYPES = [
   { value: 'other',   label: '其他',   icon: BookOpen,      cls: 'component-tag-other'   },
 ]
 
+const TAG_TYPE_LABELS = {
+  content: '内容标签',
+  status: '状态标签',
+  source: '来源标签',
+}
+
+const TAG_TYPE_STYLES = {
+  content: 'bg-muted/55 text-foreground border-border/70',
+  status: 'bg-primary/8 text-primary border-primary/15',
+  source: 'bg-secondary text-secondary-foreground border-border/60',
+}
+
 function getFavicon(url) {
   try {
     const domain = new URL(url).hostname
@@ -48,6 +61,14 @@ function toEditorContent(text: string) {
   if (!text) return ''
   if (text.trimStart().startsWith('<')) return text
   return text.split('\n\n').map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('')
+}
+
+function groupTags(tags = []) {
+  return {
+    content: tags.filter(tag => tag.type === 'content'),
+    status: tags.filter(tag => tag.type === 'status'),
+    source: tags.filter(tag => tag.type === 'source'),
+  }
 }
 
 
@@ -123,7 +144,7 @@ export default function ItemDetailPage() {
       const isNote = item.type === 'note'
       const html = isNote ? (editor?.getHTML() || '') : ''
       const text = isNote ? (editor?.getText() || '') : ''
-      const updated = await updateItem(item.id, {
+      const updated = await updateItemWithClassification(item.id, {
         title: editTitle.trim() || (isNote ? text.slice(0, 20).trim() || '无标题' : '无标题'),
         url: isNote ? null : (editUrl.trim() || null),
         type: isNote ? 'note' : editType,
@@ -183,6 +204,15 @@ export default function ItemDetailPage() {
     : ''
   const folder = folders.find(f => f.id === item.folderId)
   const isNote = item.type === 'note'
+  const groupedTags = groupTags(item.tags || [])
+  const hasStructuredTags = Object.values(groupedTags).some(group => group.length > 0)
+  const confidenceLabel = item.confidence === 'high'
+    ? '高置信'
+    : item.confidence === 'medium'
+      ? '中置信'
+      : item.confidence === 'low'
+        ? '低置信'
+        : null
 
   return (
     <div className="min-h-screen bg-background">
@@ -308,6 +338,49 @@ export default function ItemDetailPage() {
             <Download size={14} />
             下载文件
           </a>
+        )}
+
+        {!isEditing && (item.summary || confidenceLabel || hasStructuredTags) && (
+          <div className="space-y-4 mb-8">
+            {item.summary && (
+              <div className="rounded-xl border border-border/80 bg-muted/25 px-4 py-3">
+                <div className="flex items-center justify-between gap-3 mb-1.5">
+                  <span className="text-xs font-medium text-foreground">AI 摘要</span>
+                  {confidenceLabel && (
+                    <span className="text-[11px] text-muted-foreground">{confidenceLabel}</span>
+                  )}
+                </div>
+                <p className="text-sm leading-6 text-muted-foreground">{item.summary}</p>
+              </div>
+            )}
+
+            {hasStructuredTags && (
+              <div className="space-y-3">
+                {Object.entries(groupedTags).map(([type, tags]) => (
+                  tags.length > 0 && (
+                    <div key={type} className="space-y-1.5">
+                      <p className="text-[11px] font-medium text-muted-foreground">
+                        {TAG_TYPE_LABELS[type]}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {tags.map(tag => (
+                          <span
+                            key={`${tag.id}-${tag.appliedBy}`}
+                            className={cn(
+                              'inline-flex items-center rounded-md border px-2 py-1 text-xs leading-none',
+                              TAG_TYPE_STYLES[tag.type] ?? TAG_TYPE_STYLES.content
+                            )}
+                          >
+                            {tag.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         {/* Body — note rich text */}

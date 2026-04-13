@@ -8,7 +8,8 @@ import Sidebar from '@/components/layout/Sidebar'
 import ItemGrid from '@/components/features/ItemGrid'
 import AddItemDialog from '@/components/features/AddItemDialog'
 import DesignPanel from '@/components/features/DesignPanel'
-import { fetchItems, fetchFolders, createItem, updateItem, deleteItem, createFolder, renameFolder, deleteFolder } from '@/utils/supabase'
+import { fetchItems, fetchFolders, deleteItem, createFolder, renameFolder, deleteFolder } from '@/utils/supabase'
+import { createItemWithClassification, updateItemWithClassification } from '@/utils/item-service'
 
 function guessType(url) {
   const u = (url || '').toLowerCase()
@@ -53,7 +54,7 @@ export default function App() {
       const note = params.get('note') || ''
       const folderId = params.get('folderId') || null
       if (url) {
-        createItem({ url, title, type, note, folderId })
+        createItemWithClassification({ url, title, type, note, folderId })
           .then(item => setItems(prev => [item, ...prev]))
           .catch(console.error)
         window.history.replaceState({}, '', window.location.pathname)
@@ -70,11 +71,11 @@ export default function App() {
       if (data.id) {
         // Edit mode
         const { id, ...changes } = data
-        const item = await updateItem(id, changes)
+        const item = await updateItemWithClassification(id, changes)
         setItems(prev => prev.map(i => i.id === id ? item : i))
       } else {
         // Create mode
-        const item = await createItem(data)
+        const item = await createItemWithClassification(data)
         setItems(prev => [item, ...prev])
       }
       setDialogItem(null)
@@ -85,7 +86,7 @@ export default function App() {
 
   const handleUpdateItem = useCallback(async (id, changes) => {
     try {
-      const item = await updateItem(id, changes)
+      const item = await updateItemWithClassification(id, changes)
       setItems(prev => prev.map(i => i.id === id ? item : i))
     } catch (err) {
       console.error('[PB] update error:', err)

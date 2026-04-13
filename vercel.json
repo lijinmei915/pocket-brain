@@ -1,4 +1,9 @@
 {
   "installCommand": "npm install --legacy-peer-deps",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    {
+      "source": "/((?!api/|@vite/|@react-refresh|.*\\..*).*)",
+      "destination": "/index.html"
+    }
+  ]
 }

@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { FormDialog } from '@/components/ui/FormDialog'
-import { DialogActions } from '@/components/ui/DialogActions'
+import { DialogBody, DialogFooter, DialogShell } from '@/components/ui/DialogShell'
 
 // mode: 'create' | 'rename'
 export default function FolderDialog({ open, onOpenChange, mode, currentName, onConfirm }) {
@@ -23,13 +22,13 @@ export default function FolderDialog({ open, onOpenChange, mode, currentName, on
   }
 
   return (
-    <FormDialog
+    <DialogShell
       open={open}
       onOpenChange={onOpenChange}
       title={mode === 'rename' ? '重命名文件夹' : '新建文件夹'}
       className="sm:max-w-sm"
     >
-        <div className="px-4 py-3">
+        <DialogBody className="space-y-1">
           <label htmlFor={inputId} className="mb-1 block text-sm font-medium">
             文件夹名称
           </label>
@@ -44,13 +43,13 @@ export default function FolderDialog({ open, onOpenChange, mode, currentName, on
             autoFocus
             onKeyDown={e => { if (e.key === 'Enter') handleSubmit() }}
           />
-        </div>
-        <DialogActions>
-          <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>取消</Button>
-          <Button className="flex-1" onClick={handleSubmit} disabled={!name.trim()}>
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>取消</Button>
+          <Button onClick={handleSubmit} disabled={!name.trim()}>
             {mode === 'rename' ? '确认' : '创建'}
           </Button>
-        </DialogActions>
-    </FormDialog>
+        </DialogFooter>
+    </DialogShell>
   )
 }

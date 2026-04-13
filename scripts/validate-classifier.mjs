@@ -18,6 +18,7 @@ const items = await fetchSupabaseJson(
 )
 
 const results = []
+let abortedReason = ''
 
 for (const [index, item] of items.entries()) {
   try {
@@ -55,13 +56,22 @@ for (const [index, item] of items.entries()) {
       error: message,
     })
     console.error(`[${index + 1}/${items.length}] ${truncate(item.title || item.url, 48)} -> ERROR: ${message}`)
+
+    if (isQuotaError(message)) {
+      abortedReason = 'quota_exceeded'
+      console.error('\nValidation aborted early because the configured model hit quota limits.')
+      break
+    }
   }
 }
 
 const summary = {
+  requested: items.length,
   total: results.length,
   success: results.filter(result => !result.error).length,
   failed: results.filter(result => result.error).length,
+  aborted: Boolean(abortedReason),
+  aborted_reason: abortedReason || null,
   confidence: countBy(results.filter(result => !result.error), 'confidence'),
   category: countBy(
     results
@@ -147,4 +157,8 @@ function countBy(list, key) {
     accumulator[value] = (accumulator[value] || 0) + 1
     return accumulator
   }, {})
+}
+
+function isQuotaError(message) {
+  return /429|RESOURCE_EXHAUSTED|quota/i.test(message)
 }

@@ -3,13 +3,12 @@ import {
   FileText, Video, Headphones, MessageCircle, BookOpen,
   Upload, X, Image, FileArchive, Music, Loader2, RefreshCw,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import { DialogActions } from '@/components/ui/DialogActions'
 import { uploadFile } from '@/utils/supabase'
+import { classifyPreview } from '@/utils/item-service'
 
 // ── 常量 ──────────────────────────────────────────────────────────────────────
 
@@ -92,6 +91,14 @@ interface SaveFormProps {
   editItem?: any
   onSave: (data: SaveData) => Promise<void>
   onCancel: () => void
+  renderFooter?: (props: {
+    canSave: boolean
+    saving: boolean
+    overLimit: boolean
+    isEdit: boolean
+    onSave: () => Promise<void>
+    onCancel: () => void
+  }) => React.ReactNode
 }
 
 // ── 组件 ─────────────────────────────────────────────────────────────────────
@@ -104,6 +111,7 @@ export default function SaveForm({
   editItem,
   onSave,
   onCancel,
+  renderFooter,
 }: SaveFormProps) {
   const isEdit = !!editItem
 
@@ -135,11 +143,8 @@ export default function SaveForm({
     if (!url) return
     setClassifyLoading(true)
     try {
-      const r = await fetch(`/api/classify?url=${encodeURIComponent(url)}&title=${encodeURIComponent(title)}`)
-      if (r.ok) {
-        const data = await r.json()
-        if (data.type) setType(data.type)
-      }
+      const data = await classifyPreview({ url, title })
+      if (data?.type) setType(data.type)
     } catch (err) {
       console.error('[PB] classify error:', err)
     } finally {
@@ -269,7 +274,7 @@ export default function SaveForm({
   return (
     <>
       {/* 可滚动表单区 */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-4" onPaste={handlePaste}>
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-2 pb-3 space-y-4" onPaste={handlePaste}>
 
         {/* Tab switcher（编辑模式隐藏）*/}
         {!isEdit && (
@@ -459,13 +464,14 @@ export default function SaveForm({
         )}
       </div>
 
-      {/* Footer */}
-      <DialogActions>
-        <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>取消</Button>
-        <Button type="button" className="flex-1" disabled={!canSave || saving || overLimit} onClick={handleSave}>
-          {saving ? <><Loader2 size={14} className="animate-spin mr-2" />保存中…</> : isEdit ? '更新' : '保存'}
-        </Button>
-      </DialogActions>
+      {renderFooter?.({
+        canSave,
+        saving,
+        overLimit,
+        isEdit,
+        onSave: handleSave,
+        onCancel,
+      })}
     </>
   )
 }
