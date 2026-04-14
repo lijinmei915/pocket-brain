@@ -7,48 +7,19 @@ import { TextStyle, Color, FontSize, BackgroundColor } from '@tiptap/extension-t
 import Underline from '@tiptap/extension-underline'
 import {
   ArrowLeft, ExternalLink, Pencil, Trash2, Download,
-  FileText, Video, Headphones, MessageCircle, BookOpen, PenLine, FolderOpen, Paperclip,
+  FolderOpen,
 } from 'lucide-react'
 import { deleteFile } from '@/utils/supabase'
-import EditorBubbleMenu from '@/components/features/EditorBubbleMenu'
+import EditorBubbleMenu from '@/components/patterns/EditorBubbleMenu'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
+import { ITEM_TYPE_LABELS, TagChip, sortDisplayTags } from '@/components/ui/tag-chip'
 import { Skeleton } from '@/components/ui/skeleton'
 import { fetchItem, fetchFolders, deleteItem } from '@/utils/supabase'
 import { updateItemWithClassification } from '@/utils/item-service'
-import ConfirmDialog from '@/components/features/ConfirmDialog'
-import { cn } from '@/lib/utils'
+import ConfirmDialog from '@/components/patterns/ConfirmDialog'
 
-const TYPE_CONFIG = {
-  article: { icon: FileText,      label: '文章',   cls: 'component-tag-article' },
-  video:   { icon: Video,         label: '视频',   cls: 'component-tag-video'   },
-  audio:   { icon: Headphones,    label: '音频',   cls: 'component-tag-audio'   },
-  tweet:   { icon: MessageCircle, label: '帖子',   cls: 'component-tag-tweet'   },
-  other:   { icon: BookOpen,      label: '其他',   cls: 'component-tag-other'   },
-  note:    { icon: PenLine,       label: '随手记', cls: 'component-tag-note'    },
-  file:    { icon: Paperclip,     label: '文件',   cls: 'component-tag-other'   },
-}
-
-const BOOKMARK_TYPES = [
-  { value: 'article', label: '文章',   icon: FileText,      cls: 'component-tag-article' },
-  { value: 'video',   label: '视频',   icon: Video,         cls: 'component-tag-video'   },
-  { value: 'audio',   label: '音频',   icon: Headphones,    cls: 'component-tag-audio'   },
-  { value: 'tweet',   label: '帖子',   icon: MessageCircle, cls: 'component-tag-tweet'   },
-  { value: 'other',   label: '其他',   icon: BookOpen,      cls: 'component-tag-other'   },
-]
-
-const TAG_TYPE_LABELS = {
-  content: '内容标签',
-  status: '状态标签',
-  source: '来源标签',
-}
-
-const TAG_TYPE_STYLES = {
-  content: 'bg-muted/55 text-foreground border-border/70',
-  status: 'bg-primary/8 text-primary border-primary/15',
-  source: 'bg-secondary text-secondary-foreground border-border/60',
-}
+const BOOKMARK_TYPES = ['article', 'video', 'audio', 'tweet', 'other']
 
 function getFavicon(url) {
   try {
@@ -62,16 +33,6 @@ function toEditorContent(text: string) {
   if (text.trimStart().startsWith('<')) return text
   return text.split('\n\n').map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('')
 }
-
-function groupTags(tags = []) {
-  return {
-    content: tags.filter(tag => tag.type === 'content'),
-    status: tags.filter(tag => tag.type === 'status'),
-    source: tags.filter(tag => tag.type === 'source'),
-  }
-}
-
-
 
 export default function ItemDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -196,16 +157,13 @@ export default function ItemDetailPage() {
     )
   }
 
-  const typeConf = TYPE_CONFIG[item.type] ?? TYPE_CONFIG.other
-  const TypeIcon = typeConf.icon
   const favicon = item.url ? getFavicon(item.url) : null
   const date = item.createdAt
     ? new Date(item.createdAt).toLocaleString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
     : ''
   const folder = folders.find(f => f.id === item.folderId)
   const isNote = item.type === 'note'
-  const groupedTags = groupTags(item.tags || [])
-  const hasStructuredTags = Object.values(groupedTags).some(group => group.length > 0)
+  const displayTags = sortDisplayTags(item.tags || [])
   const confidenceLabel = item.confidence === 'high'
     ? '高置信'
     : item.confidence === 'medium'
@@ -255,22 +213,6 @@ export default function ItemDetailPage() {
 
       {/* Content */}
       <div className="max-w-2xl mx-auto px-6 md:px-12 py-6">
-        {/* Meta row — small, muted, above title */}
-        <div className="flex items-center gap-2.5 mb-2 flex-wrap">
-          <Badge
-            className={cn('h-auto text-[10px] px-1.5 py-1 gap-0.5 border-none', typeConf.cls)}
-            style={{ background: 'var(--tag-bg)', color: 'var(--tag-text)' }}
-          >
-            <TypeIcon size={9} />{typeConf.label}
-          </Badge>
-          {date && <span className="text-xs text-muted-foreground">{date}</span>}
-          {folder && (
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              <FolderOpen size={12} />{folder.name}
-            </span>
-          )}
-        </div>
-
         {/* Title — large document heading */}
         {isEditing ? (
           <input
@@ -295,28 +237,44 @@ export default function ItemDetailPage() {
           )
         )}
 
+        <div className="space-y-3 mb-6">
+          <div className="flex flex-wrap gap-2">
+            <TagChip tone="type">{ITEM_TYPE_LABELS[item.type] || ITEM_TYPE_LABELS.other}</TagChip>
+            {displayTags.map(tag => (
+              <TagChip
+                key={`${tag.id}-${tag.appliedBy}`}
+                tone={tag.appliedBy === 'user' ? 'user' : tag.type === 'source' ? 'source' : 'ai'}
+              >
+                {tag.name}
+              </TagChip>
+            ))}
+          </div>
+          {(date || folder) && (
+            <div className="flex items-center gap-2.5 flex-wrap text-xs text-muted-foreground">
+              {date && <span>{date}</span>}
+              {folder && (
+                <span className="flex items-center gap-1">
+                  <FolderOpen size={12} />{folder.name}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* URL fields — bookmark */}
         {isEditing && !isNote && (
           <div className="space-y-3 mb-6">
             <Input className="text-sm" value={editUrl} onChange={e => setEditUrl(e.target.value)} placeholder="https://..." />
-            <div className="flex gap-2 flex-wrap">
-              {BOOKMARK_TYPES.map(t => {
-                const Icon = t.icon
-                const selected = editType === t.value
-                return (
-                  <button
-                    key={t.value}
-                    onClick={() => setEditType(t.value)}
-                    className={cn(
-                      'inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors border-0',
-                      selected ? t.cls : 'bg-[var(--bg-secondary)] text-[var(--text-disabled)] hover:text-[var(--text-secondary)]'
-                    )}
-                    style={selected ? { background: 'var(--tag-bg)', color: 'var(--tag-text)' } : undefined}
-                  >
-                    <Icon size={10} />{t.label}
-                  </button>
-                )
-              })}
+            <div className="flex flex-wrap gap-2">
+              {BOOKMARK_TYPES.map(option => (
+                <TagChip
+                  key={option}
+                  tone={editType === option ? 'type' : 'muted'}
+                  onClick={() => setEditType(option)}
+                >
+                  {ITEM_TYPE_LABELS[option]}
+                </TagChip>
+              ))}
             </div>
           </div>
         )}
@@ -340,7 +298,7 @@ export default function ItemDetailPage() {
           </a>
         )}
 
-        {!isEditing && (item.summary || confidenceLabel || hasStructuredTags) && (
+        {!isEditing && (item.summary || confidenceLabel) && (
           <div className="space-y-4 mb-8">
             {item.summary && (
               <div className="rounded-xl border border-border/80 bg-muted/25 px-4 py-3">
@@ -351,33 +309,6 @@ export default function ItemDetailPage() {
                   )}
                 </div>
                 <p className="text-sm leading-6 text-muted-foreground">{item.summary}</p>
-              </div>
-            )}
-
-            {hasStructuredTags && (
-              <div className="space-y-3">
-                {Object.entries(groupedTags).map(([type, tags]) => (
-                  tags.length > 0 && (
-                    <div key={type} className="space-y-1.5">
-                      <p className="text-[11px] font-medium text-muted-foreground">
-                        {TAG_TYPE_LABELS[type]}
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {tags.map(tag => (
-                          <span
-                            key={`${tag.id}-${tag.appliedBy}`}
-                            className={cn(
-                              'inline-flex items-center rounded-md border px-2 py-1 text-xs leading-none',
-                              TAG_TYPE_STYLES[tag.type] ?? TAG_TYPE_STYLES.content
-                            )}
-                          >
-                            {tag.name}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                ))}
               </div>
             )}
           </div>

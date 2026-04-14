@@ -4,9 +4,9 @@
 
 ## 当前状态速览（每次收尾更新，保持 5 行以内）
 
-- **上次做到**：Qwen 分类器 + 对话框重构 + ItemDetail 增强 全部提交部署
-- **下一步**：跑 28 条现有数据批量验证分类准确率，调优 Prompt，决定 low confidence 的处理方式
-- **线上地址**：https://pocketbrain.me（自定义域名已绑定）
+- **上次做到**：ConfirmDialog 改用 shadcn AlertDialog 标准组件；SaveForm 来源标签自动检测 + 类型标签 AI 生成 + 自定义标签去掉类型下拉 + 备注合并进标签区；Prompt 优化摘要和标签质量
+- **下一步**：线上验证标签保存是否正常；跑批量验证分类准确率
+- **线上地址**：https://pocketbrain.me
 
 ---
 

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import GetAppDialog from '@/components/features/GetAppDialog'
+import GetAppDialog from '@/components/patterns/GetAppDialog'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -16,8 +16,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import FolderDialog from '@/components/features/FolderDialog'
-import ConfirmDialog from '@/components/features/ConfirmDialog'
+import FolderDialog from '@/components/patterns/FolderDialog'
+import ConfirmDialog from '@/components/patterns/ConfirmDialog'
 import { cn } from '@/lib/utils'
 
 function FolderItem({ folder, folders, items, selected, depth, onSelect, onRename, onDelete, onCreateSub }) {

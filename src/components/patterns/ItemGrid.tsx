@@ -11,26 +11,10 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu'
-import { Plus, ExternalLink, Trash2, Pencil, BookOpen, Video, Headphones, MessageCircle, FileText, PenLine, Inbox, Menu, FolderInput } from 'lucide-react'
+import { Plus, ExternalLink, Trash2, Pencil, Inbox, Menu, FolderInput } from 'lucide-react'
 import { MoreButton } from '@/components/ui/MoreButton'
-import { Badge } from '@/components/ui/badge'
-import ConfirmDialog from '@/components/features/ConfirmDialog'
-import { cn } from '@/lib/utils'
-
-const TYPE_CONFIG = {
-  article: { icon: FileText,      label: '文章',   cls: 'component-tag-article' },
-  video:   { icon: Video,         label: '视频',   cls: 'component-tag-video'   },
-  audio:   { icon: Headphones,    label: '音频',   cls: 'component-tag-audio'   },
-  tweet:   { icon: MessageCircle, label: '帖子',   cls: 'component-tag-tweet'   },
-  other:   { icon: BookOpen,      label: '其他',   cls: 'component-tag-other'   },
-  note:    { icon: PenLine,       label: '随手记', cls: 'component-tag-note'    },
-}
-
-const TAG_TYPE_STYLES = {
-  content: 'bg-muted/55 text-foreground border-border/70',
-  status: 'bg-primary/8 text-primary border-primary/15',
-  source: 'bg-secondary text-secondary-foreground border-border/60',
-}
+import { ITEM_TYPE_LABELS, TagChip, sortDisplayTags } from '@/components/ui/tag-chip'
+import ConfirmDialog from '@/components/patterns/ConfirmDialog'
 
 function getFavicon(url) {
   try {
@@ -59,10 +43,9 @@ function getVisibleTags(tags = []) {
 
 function ItemCard({ item, folders, onDelete, onEdit, onMove, folderOptions = [] }) {
   const navigate = useNavigate()
-  const typeConf = TYPE_CONFIG[item.type] ?? TYPE_CONFIG.other
-  const TypeIcon = typeConf.icon
   const favicon = getFavicon(item.url)
   const visibleTags = getVisibleTags(item.tags || [])
+  const displayTags = sortDisplayTags(visibleTags)
 
   const date = item.createdAt ? new Date(item.createdAt).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : ''
 
@@ -129,38 +112,27 @@ function ItemCard({ item, folders, onDelete, onEdit, onMove, folderOptions = [] 
         </div>
       </div>
 
-      {/* Row 2: tag | date */}
-      <div className="flex items-center justify-between">
-        <Badge
-          className={cn('h-auto text-[10px] px-1.5 py-1 gap-0.5 border-none', typeConf.cls)}
-          style={{ background: 'var(--tag-bg)', color: 'var(--tag-text)' }}
-        >
-          <TypeIcon size={9} />{typeConf.label}
-        </Badge>
-        <span className="text-[10px] text-muted-foreground">{date}</span>
-      </div>
-
-      {(item.summary || visibleTags.length > 0) && (
+      {(item.summary || displayTags.length > 0 || item.type) && (
         <div className="space-y-2">
-          {item.summary && (
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex min-w-0 flex-1 flex-wrap gap-1">
+              <TagChip tone="type">{ITEM_TYPE_LABELS[item.type] || '其他'}</TagChip>
+              {displayTags.map(tag => (
+                <TagChip
+                  key={`${item.id}-${tag.id}-${tag.appliedBy}`}
+                  tone={tag.appliedBy === 'user' ? 'user' : tag.type === 'source' ? 'source' : 'ai'}
+                >
+                  {tag.name}
+                </TagChip>
+              ))}
+            </div>
+            {date && <span className="shrink-0 pt-1 text-[11px] leading-none text-muted-foreground">{date}</span>}
+          </div>
+
+          {item.summary && item.summary.trim() && (
             <p className="text-xs leading-5 text-muted-foreground line-clamp-2">
               {item.summary}
             </p>
-          )}
-          {visibleTags.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {visibleTags.map(tag => (
-                <span
-                  key={`${item.id}-${tag.id}-${tag.appliedBy}`}
-                  className={cn(
-                    'inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] leading-none',
-                    TAG_TYPE_STYLES[tag.type] ?? TAG_TYPE_STYLES.content
-                  )}
-                >
-                  {tag.name}
-                </span>
-              ))}
-            </div>
           )}
         </div>
       )}

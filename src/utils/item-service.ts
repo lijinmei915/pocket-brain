@@ -14,12 +14,34 @@ interface ClassificationPreview {
   tags?: Array<{ name: string; type: ItemTag['type'] }>
 }
 
+export interface ConfirmedTagDraft {
+  name: string
+  type: ItemTag['type']
+  appliedBy: 'ai' | 'user'
+}
+
+type ClassificationSaveFields = {
+  summary?: string
+  categoryId?: string | null
+  confidence?: 'high' | 'medium' | 'low' | null
+  tags?: ConfirmedTagDraft[]
+}
+
 function shouldClassify(item: Partial<BookmarkItem>) {
   return Boolean(item.url)
 }
 
 function shouldReclassify(changes: Partial<BookmarkItem>) {
-  return changes.url !== undefined || changes.title !== undefined || changes.note !== undefined
+  return (
+    changes.url !== undefined ||
+    changes.title !== undefined ||
+    changes.note !== undefined ||
+    changes.type !== undefined ||
+    changes.summary !== undefined ||
+    changes.categoryId !== undefined ||
+    changes.confidence !== undefined ||
+    Array.isArray(changes.tags)
+  )
 }
 
 export async function classifyPreview(input: { url: string; title?: string; note?: string }) {
@@ -48,7 +70,33 @@ export async function classifyPreview(input: { url: string; title?: string; note
   }
 }
 
+async function resolveFinalItem(item: BookmarkItem, classification: Record<string, unknown> | null) {
+  if (!classification) {
+    return item
+  }
+
+  const refreshed = item.id ? await fetchItem(item.id) : null
+  return refreshed || mergeClassification(item, classification)
+}
+
 async function applyClassification(item: BookmarkItem) {
+  return applyConfirmedClassification(item, {})
+}
+
+async function applyConfirmedClassification(item: BookmarkItem, confirmed: ClassificationSaveFields) {
+  const confirmedPayload = {
+    category_id: confirmed.categoryId ?? null,
+    confidence: confirmed.confidence ?? null,
+    summary: confirmed.summary ?? '',
+    tags: Array.isArray(confirmed.tags)
+      ? confirmed.tags.map(tag => ({
+          name: tag.name,
+          type: tag.type,
+          appliedBy: tag.appliedBy,
+        }))
+      : [],
+  }
+
   try {
     const response = await fetch('/api/classify', {
       method: 'POST',
@@ -61,6 +109,7 @@ async function applyClassification(item: BookmarkItem) {
         title: item.title,
         note: item.note,
         apply: true,
+        confirmed: confirmedPayload,
       }),
     })
 
@@ -109,24 +158,48 @@ function mergeClassification(item: BookmarkItem, classification: Record<string, 
 
 export async function createItemWithClassification(item: Partial<BookmarkItem>) {
   const created = await createItemRecord(item)
+  const hasConfirmedFields =
+    item.summary !== undefined ||
+    item.categoryId !== undefined ||
+    item.confidence !== undefined ||
+    Array.isArray(item.tags)
 
   if (!shouldClassify(created) || !created.id) {
     return created
   }
 
-  const classified = await applyClassification(created)
-  return classified ? mergeClassification(created, classified) : created
+  const classified = hasConfirmedFields
+    ? await applyConfirmedClassification(created, {
+        summary: item.summary,
+        categoryId: item.categoryId ?? null,
+        confidence: item.confidence ?? null,
+        tags: Array.isArray(item.tags) ? (item.tags as ConfirmedTagDraft[]) : [],
+      })
+    : await applyClassification(created)
+  return resolveFinalItem(created, classified)
 }
 
 export async function updateItemWithClassification(id: string, changes: Partial<BookmarkItem>) {
   const updated = await updateItemRecord(id, changes)
+  const hasConfirmedFields =
+    changes.summary !== undefined ||
+    changes.categoryId !== undefined ||
+    changes.confidence !== undefined ||
+    Array.isArray(changes.tags)
 
   if (!updated.id || !shouldClassify(updated) || !shouldReclassify(changes)) {
     return updated
   }
 
-  const classified = await applyClassification(updated)
-  return classified ? mergeClassification(updated, classified) : updated
+  const classified = hasConfirmedFields
+    ? await applyConfirmedClassification(updated, {
+        summary: changes.summary,
+        categoryId: changes.categoryId ?? null,
+        confidence: changes.confidence ?? null,
+        tags: Array.isArray(changes.tags) ? (changes.tags as ConfirmedTagDraft[]) : [],
+      })
+    : await applyClassification(updated)
+  return resolveFinalItem(updated, classified)
 }
 
 export async function refreshItemAfterClassification(id: string) {

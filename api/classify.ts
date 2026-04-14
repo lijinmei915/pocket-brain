@@ -1,5 +1,12 @@
 import { VercelRequest, VercelResponse } from '@vercel/node'
-import { applyClassificationToItem, classifyBookmark, getClassifierEnvDebug, hasClassifierApiKey } from './_lib/classifier.js'
+import {
+  applyClassificationToItem,
+  canExposeClassifierDebug,
+  classifyBookmark,
+  getClassifierEnvDebug,
+  hasClassifierApiKey,
+  normalizeConfirmedClassification,
+} from './_lib/classifier.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET' && req.method !== 'POST') {
@@ -12,7 +19,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const note = typeof payload.note === 'string' ? payload.note : ''
   const itemId = typeof payload.itemId === 'string' ? payload.itemId : ''
   const apply = payload.apply === true || payload.apply === 'true' || payload.apply === '1'
-  const debug = payload.debug === true || payload.debug === 'true' || payload.debug === '1'
+  const debug = (payload.debug === true || payload.debug === 'true' || payload.debug === '1') && canExposeClassifierDebug()
+  const confirmed = payload.confirmed && typeof payload.confirmed === 'object' ? payload.confirmed : null
 
   if (!url) {
     return res.status(400).json({ error: 'Missing or invalid url parameter' })
@@ -30,8 +38,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const result = await classifyBookmark({ url, title, note })
-    const finalResult = apply ? await applyClassificationToItem(itemId, result) : result
+    const result = confirmed
+      ? normalizeConfirmedClassification(confirmed, {
+          summary: title,
+        })
+      : await classifyBookmark({ url, title, note })
+    const finalResult = apply
+      ? await applyClassificationToItem(itemId, result, {
+          userTags: result.userTags,
+          replaceUserTags: confirmed !== null,
+          recordRemovedAiSuppressions: confirmed !== null,
+        })
+      : result
     return res.status(200).json(finalResult)
   } catch (err) {
     console.error('[PB] classify error:', err)

@@ -98,6 +98,10 @@ export function hasClassifierApiKey() {
   return Boolean(runtimeEnv.QWEN_API_KEY || runtimeEnv.DASHSCOPE_API_KEY)
 }
 
+export function canExposeClassifierDebug() {
+  return runtimeEnv.NODE_ENV !== 'production' || runtimeEnv.VERCEL_ENV === 'development'
+}
+
 const ALLOWED_CONFIDENCE = new Set(['high', 'medium', 'low'])
 const ALLOWED_TAG_TYPES = new Set(['content', 'status', 'source'])
 const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504])
@@ -309,10 +313,40 @@ async function upsertAiItemTag(itemId, tagId) {
   })
 }
 
+async function upsertUserItemTag(itemId, tagId) {
+  await supabaseRest('/item_tags', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: {
+      item_id: itemId,
+      tag_id: tagId,
+      applied_by: 'user',
+    },
+  })
+}
+
 async function deleteItemTag(itemId, tagId) {
   await supabaseRest(`/item_tags?item_id=eq.${encodeURIComponent(itemId)}&tag_id=eq.${encodeURIComponent(tagId)}`, {
     method: 'DELETE',
   })
+}
+
+async function addSuppression(itemId, tagId) {
+  await supabaseRest('/item_tag_suppressions', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: {
+      item_id: itemId,
+      tag_id: tagId,
+    },
+  })
+}
+
+async function clearSuppression(itemId, tagId) {
+  await supabaseRest(
+    `/item_tag_suppressions?item_id=eq.${encodeURIComponent(itemId)}&tag_id=eq.${encodeURIComponent(tagId)}`,
+    { method: 'DELETE' }
+  )
 }
 
 async function fetchStoredTagsForItem(itemId) {
@@ -334,8 +368,8 @@ function buildPrompt({ url, title, note, sourceTag, categories }) {
     '必须遵守：',
     '1. category_id 只能从候选列表中选择一个真实 UUID，禁止自造分类名或 UUID。',
     '2. confidence 只能是 high / medium / low。',
-    '3. tags 最多 5 个，每个 tag 只能包含 name 和 type；type 只能是 content / status / source。',
-    '4. summary 用简体中文，控制在 50 字以内。',
+    '3. tags 最多 5 个，type 必须是 content。标签应是具体的主题词（如"React"、"机器学习"），不要输出来源平台名、分类名或泛化词（如"技术文章"、"新闻"）。',
+    '4. summary 用简体中文，控制在 50 字以内。摘要必须补充标题中没有的关键信息（如结论、数据、人物、事件结果），严禁复述或改写标题。如果内容信息不足，写"暂无更多信息"。',
     '5. 如果把握不大，也要选最接近的 category_id，并把 confidence 设为 low。',
     '6. 只返回 JSON，不要输出 Markdown，不要解释。',
     '',
@@ -360,7 +394,7 @@ function buildPrompt({ url, title, note, sourceTag, categories }) {
         category_id: '候选中的真实 UUID',
         confidence: 'high',
         tags: [{ name: 'React', type: 'content' }],
-        summary: '50字内摘要',
+        summary: '标题之外的关键信息，50字内',
       },
       null,
       2
@@ -394,6 +428,13 @@ function normalizeSummary(summary, fallbackTitle) {
   return text.length > 50 ? `${text.slice(0, 50).trim()}…` : text
 }
 
+function normalizeConfirmedTag(tag) {
+  const name = String(tag?.name || '').replace(/^#/, '').trim()
+  const type = String(tag?.type || '').trim().toLowerCase()
+  if (!name || !ALLOWED_TAG_TYPES.has(type)) return null
+  return { name, type }
+}
+
 function normalizeTags(tags, sourceTag) {
   const result = []
   const seen = new Set()
@@ -417,6 +458,48 @@ function normalizeTags(tags, sourceTag) {
   }
 
   return result.slice(0, 5)
+}
+
+export function normalizeConfirmedClassification(input, fallback = {}) {
+  const normalizedAiTags = []
+  const seenAi = new Set()
+  const normalizedUserTags = []
+  const seenUser = new Set()
+
+  for (const tag of Array.isArray(input?.tags) ? input.tags : []) {
+    const normalized = normalizeConfirmedTag(tag)
+    if (!normalized) continue
+
+    const appliedBy = tag?.appliedBy === 'user' ? 'user' : 'ai'
+    const key = `${normalized.type}:${normalized.name.toLowerCase()}`
+
+    if (appliedBy === 'user') {
+      if (seenUser.has(key)) continue
+      seenUser.add(key)
+      normalizedUserTags.push(normalized)
+      continue
+    }
+
+    if (seenUser.has(key) || seenAi.has(key)) continue
+    seenAi.add(key)
+    normalizedAiTags.push(normalized)
+  }
+
+  const summary =
+    input && Object.prototype.hasOwnProperty.call(input, 'summary')
+      ? String(input.summary || '').trim()
+      : undefined
+
+  const confidence = ALLOWED_CONFIDENCE.has(input?.confidence) ? input.confidence : fallback.confidence
+  const categoryId = typeof input?.category_id === 'string' ? input.category_id : fallback.category_id
+
+  return {
+    category_id: categoryId || null,
+    confidence: confidence || null,
+    summary: summary !== undefined ? summary : fallback.summary,
+    tags: normalizedAiTags,
+    userTags: normalizedUserTags,
+  }
 }
 
 async function callQwen(prompt) {
@@ -520,9 +603,12 @@ export async function classifyBookmark(input, options = {}) {
   }
 }
 
-export async function applyClassificationToItem(itemId, classification) {
+export async function applyClassificationToItem(itemId, classification, options = {}) {
   const currentRows = await fetchCurrentItemTagRows(itemId)
   const suppressedTagIds = await fetchSuppressedTagIds(itemId)
+  const replaceUserTags = options.replaceUserTags === true
+  const recordRemovedAiSuppressions = options.recordRemovedAiSuppressions === true
+  const desiredUserTags = Array.isArray(options.userTags) ? options.userTags : []
 
   const currentAiTagIds = new Set(
     currentRows
@@ -530,8 +616,15 @@ export async function applyClassificationToItem(itemId, classification) {
       .map(row => row?.tag_id)
       .filter(Boolean)
   )
+  const currentUserTagIds = new Set(
+    currentRows
+      .filter(row => row?.applied_by === 'user')
+      .map(row => row?.tag_id)
+      .filter(Boolean)
+  )
 
   const desiredAiTagIds = new Set()
+  const desiredUserTagIds = new Set()
 
   for (const tag of Array.isArray(classification?.tags) ? classification.tags : []) {
     const ensured = await ensureTag(tag)
@@ -541,20 +634,45 @@ export async function applyClassificationToItem(itemId, classification) {
     await upsertAiItemTag(itemId, ensured.id)
   }
 
+  for (const tag of desiredUserTags) {
+    const ensured = await ensureTag(tag)
+    if (!ensured?.id) continue
+    desiredUserTagIds.add(ensured.id)
+    await upsertUserItemTag(itemId, ensured.id)
+    if (suppressedTagIds.has(ensured.id)) {
+      await clearSuppression(itemId, ensured.id)
+    }
+  }
+
   for (const tagId of currentAiTagIds) {
     if (!desiredAiTagIds.has(tagId)) {
       await deleteItemTag(itemId, tagId)
+      if (recordRemovedAiSuppressions) {
+        await addSuppression(itemId, tagId)
+      }
     }
+  }
+
+  if (replaceUserTags) {
+    for (const tagId of currentUserTagIds) {
+      if (!desiredUserTagIds.has(tagId)) {
+        await deleteItemTag(itemId, tagId)
+      }
+    }
+  }
+
+  const itemPatch = { ai_status: 'completed' }
+  if (Object.prototype.hasOwnProperty.call(classification || {}, 'category_id')) {
+    itemPatch.category_id = classification.category_id || null
+  }
+  if (Object.prototype.hasOwnProperty.call(classification || {}, 'summary')) {
+    itemPatch.summary = classification.summary || null
   }
 
   await supabaseRest(`/items?id=eq.${encodeURIComponent(itemId)}`, {
     method: 'PATCH',
     headers: { Prefer: 'return=minimal' },
-    body: {
-      category_id: classification.category_id,
-      summary: classification.summary,
-      ai_status: 'completed',
-    },
+    body: itemPatch,
   })
 
   return {

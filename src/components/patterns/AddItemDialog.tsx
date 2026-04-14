@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DialogFooter, DialogShell } from '@/components/ui/DialogShell'
-import SaveForm from '@/components/features/SaveForm'
+import SaveForm from '@/components/patterns/SaveForm'
 
 export default function AddItemDialog({ open, onOpenChange, folders, onSave, defaultFolderId, editItem }) {
   // 每次打开对话框时重置表单（通过 key 强制重新挂载 SaveForm）
@@ -22,12 +22,17 @@ export default function AddItemDialog({ open, onOpenChange, folders, onSave, def
         editItem={editItem}
         onSave={onSave}
         onCancel={() => onOpenChange(false)}
-        renderFooter={({ canSave, saving, overLimit, isEdit, onSave, onCancel }) => (
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onCancel}>取消</Button>
-            <Button type="button" disabled={!canSave || saving || overLimit} onClick={onSave}>
-              {saving ? <><Loader2 size={14} className="animate-spin mr-2" />保存中…</> : isEdit ? '更新' : '保存'}
-            </Button>
+        renderFooter={({ footerMessage, primaryDisabled, primaryLabel, saving, onSave, onCancel }) => (
+          <DialogFooter className="items-center justify-between gap-3">
+            <p className="min-w-0 flex-1 text-xs text-muted-foreground" aria-live="polite">
+              {footerMessage}
+            </p>
+            <div className="flex shrink-0 gap-2">
+              <Button type="button" variant="outline" onClick={onCancel}>取消</Button>
+              <Button type="button" disabled={primaryDisabled} onClick={onSave}>
+                {saving ? <><Loader2 size={14} className="animate-spin mr-2" />{primaryLabel}</> : primaryLabel}
+              </Button>
+            </div>
           </DialogFooter>
         )}
       />
