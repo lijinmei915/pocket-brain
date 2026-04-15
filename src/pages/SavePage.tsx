@@ -7,6 +7,7 @@ import { Logo } from '@/components/ui/Logo'
 import { fetchFolders } from '@/utils/supabase'
 import { createItemWithClassification } from '@/utils/item-service'
 import SaveForm from '@/components/patterns/SaveForm'
+import { cn } from '@/lib/utils'
 
 // PWA standalone 模式下 window.close() 无效，改为跳回首页
 const isStandalone = window.matchMedia('(display-mode: standalone)').matches
@@ -89,9 +90,15 @@ export default function SavePage() {
         initialTitle={resolvedTitle}
         onSave={handleSave}
         onCancel={handleCancel}
-        renderFooter={({ footerMessage, primaryDisabled, primaryLabel, saving, onSave, onCancel }) => (
+        renderFooter={({ footerMessage, footerTone, primaryDisabled, primaryLabel, saving, onSave, onCancel }) => (
           <DialogFooter className="rounded-none border-b-0 items-center justify-between gap-3">
-            <p className="min-w-0 flex-1 text-xs text-muted-foreground" aria-live="polite">
+            <p
+              className={cn(
+                'min-w-0 flex-1 text-xs',
+                footerTone === 'error' ? 'text-destructive' : 'text-muted-foreground'
+              )}
+              aria-live="polite"
+            >
               {footerMessage}
             </p>
             <div className="flex shrink-0 gap-2">

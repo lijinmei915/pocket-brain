@@ -3,6 +3,7 @@ import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DialogFooter, DialogShell } from '@/components/ui/DialogShell'
 import SaveForm from '@/components/patterns/SaveForm'
+import { cn } from '@/lib/utils'
 
 export default function AddItemDialog({ open, onOpenChange, folders, onSave, defaultFolderId, editItem }) {
   // 每次打开对话框时重置表单（通过 key 强制重新挂载 SaveForm）
@@ -22,9 +23,15 @@ export default function AddItemDialog({ open, onOpenChange, folders, onSave, def
         editItem={editItem}
         onSave={onSave}
         onCancel={() => onOpenChange(false)}
-        renderFooter={({ footerMessage, primaryDisabled, primaryLabel, saving, onSave, onCancel }) => (
+        renderFooter={({ footerMessage, footerTone, primaryDisabled, primaryLabel, saving, onSave, onCancel }) => (
           <DialogFooter className="items-center justify-between gap-3">
-            <p className="min-w-0 flex-1 text-xs text-muted-foreground" aria-live="polite">
+            <p
+              className={cn(
+                'min-w-0 flex-1 text-xs',
+                footerTone === 'error' ? 'text-destructive' : 'text-muted-foreground'
+              )}
+              aria-live="polite"
+            >
               {footerMessage}
             </p>
             <div className="flex shrink-0 gap-2">

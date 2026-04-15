@@ -1,6 +1,4 @@
-import { VercelRequest, VercelResponse } from '@vercel/node'
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req, res) {
   const { url } = req.query
   if (!url || typeof url !== 'string') {
     return res.status(400).json({ error: 'Missing url' })

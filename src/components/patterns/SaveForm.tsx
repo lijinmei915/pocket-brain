@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TagChip, getTagChipTone } from '@/components/ui/tag-chip'
 import { cn } from '@/lib/utils'
-import { fetchUserTagLibrary, uploadFile } from '@/utils/supabase'
+import { fetchItemByUrl, fetchUserTagLibrary, uploadFile } from '@/utils/supabase'
 import { classifyPreview } from '@/utils/item-service'
 import type { ConfirmedTagDraft } from '@/utils/item-service'
 import type { BookmarkItem, ItemTag } from '@/utils/supabase'
@@ -69,6 +69,24 @@ function getSingleFileHint(file: File): string | null {
 
 function normalizeUrlInput(value: string) {
   return value.trim()
+}
+
+function normalizeComparableUrl(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+
+  try {
+    const parsed = new URL(trimmed)
+    parsed.hash = ''
+
+    if (parsed.pathname !== '/' && parsed.pathname.endsWith('/')) {
+      parsed.pathname = parsed.pathname.replace(/\/+$/, '')
+    }
+
+    return parsed.toString()
+  } catch {
+    return trimmed
+  }
 }
 
 function isValidHttpUrl(value: string) {
@@ -237,6 +255,7 @@ interface SaveFormProps {
     overLimit: boolean
     isEdit: boolean
     footerMessage: string
+    footerTone: 'default' | 'error'
     primaryLabel: string
     primaryDisabled: boolean
     onSave: () => Promise<void>
@@ -273,6 +292,7 @@ export default function SaveForm({
   const [titleTouched,   setTitleTouched]   = useState(false)
   const [fetchingTitle,  setFetchingTitle]  = useState(false)
   const [urlError, setUrlError] = useState('')
+  const [duplicateUrlError, setDuplicateUrlError] = useState('')
   const [type,           setType]           = useState(editItem?.type  ?? 'other')
   const [note,           setNote]           = useState(editItem?.type !== 'note' ? (editItem?.note ?? '') : '')
   const [typeTouched,    setTypeTouched]    = useState(!!editItem)
@@ -345,11 +365,13 @@ export default function SaveForm({
     const trimmedUrl = normalizeUrlInput(url)
     if (!trimmedUrl) {
       setUrlError('')
+      setFetchingTitle(false)
       return undefined
     }
 
     if (!isValidHttpUrl(trimmedUrl)) {
       setUrlError('请输入有效的 http(s) 链接')
+      setFetchingTitle(false)
       return undefined
     }
 
@@ -363,6 +385,11 @@ export default function SaveForm({
       if (titleSourceRef.current !== 'manual') {
         setTitle('')
       }
+    }
+
+    if (duplicateUrlError) {
+      setFetchingTitle(false)
+      return undefined
     }
 
     if (titleTouched || title.trim() || fetchingTitle) return undefined
@@ -388,7 +415,52 @@ export default function SaveForm({
     }, 150)
 
     return () => window.clearTimeout(timer)
-  }, [url, tab, titleTouched, title, fetchingTitle])
+  }, [url, tab, titleTouched, title, fetchingTitle, duplicateUrlError])
+
+  useEffect(() => {
+    if (tab !== 'bookmark' || isEdit) {
+      setDuplicateUrlError('')
+      return undefined
+    }
+
+    const trimmedUrl = normalizeUrlInput(url)
+    if (!trimmedUrl || !isValidHttpUrl(trimmedUrl)) {
+      setDuplicateUrlError('')
+      return undefined
+    }
+
+    let active = true
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const existingItem = await fetchItemByUrl(normalizeComparableUrl(trimmedUrl))
+          if (!active) return
+          if (existingItem?.id) {
+            classifyAbortRef.current?.abort()
+            setFetchingTitle(false)
+            setClassifyLoading(false)
+            setPreviewError('')
+            setPreviewSlowMessage('')
+            setPreviewCategoryId(null)
+            setPreviewConfidence(null)
+            setPreviewTags([])
+            setDismissedSuggestionKeys([])
+            setDuplicateUrlError('该链接已存在，不能重复保存')
+            return
+          }
+          setDuplicateUrlError('')
+        } catch (error) {
+          if (!active) return
+          console.error('[PB] duplicate url check failed:', error)
+        }
+      })()
+    }, 350)
+
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+  }, [url, tab, isEdit])
 
   // URL / 标题 / 备注改变时，自动分类
   useEffect(() => {
@@ -426,6 +498,17 @@ export default function SaveForm({
 
     setUrlError('')
 
+    if (duplicateUrlError) {
+      setClassifyLoading(false)
+      setPreviewError('')
+      setPreviewSlowMessage('')
+      setPreviewCategoryId(null)
+      setPreviewConfidence(null)
+      setPreviewTags([])
+      setDismissedSuggestionKeys([])
+      return undefined
+    }
+
     if (isEdit) {
       setClassifyLoading(false)
       setPreviewError('')
@@ -456,7 +539,7 @@ export default function SaveForm({
         classifyAbortRef.current = null
       }
     }
-  }, [url, title, tab])
+  }, [url, title, tab, duplicateUrlError])
 
   async function autoClassify(
     requestId: number,
@@ -568,6 +651,7 @@ export default function SaveForm({
     ? isEdit ? '更新中…' : '保存中…'
     : isEdit ? '更新' : '保存'
   const primaryDisabled = !canSave || saving || overLimit
+  const footerTone = saveError ? 'error' : 'default'
 
   function normalizeFolderId(value: string | null) {
     if (!value || value === INBOX) return null
@@ -607,6 +691,7 @@ export default function SaveForm({
   function handleUrlChange(val: string) {
     setUrl(val)
     if (saveError) setSaveError('')
+    if (duplicateUrlError) setDuplicateUrlError('')
   }
 
   function updateSelectedTagsForTab(targetTab: FormTab, updater: (prev: ConfirmedTagDraft[]) => ConfirmedTagDraft[]) {
@@ -797,7 +882,7 @@ export default function SaveForm({
             </span>
           )}
         </div>
-        <div className="rounded-lg border border-border/80 bg-muted/20 px-3 py-3 space-y-3">
+        <div className="space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div className="w-[52%] min-w-[12rem] max-w-[22rem] shrink-0">
               <div className="relative flex-1">
@@ -941,6 +1026,9 @@ export default function SaveForm({
               />
               {urlError && (
                 <p className="mt-1 text-xs text-amber-700">{urlError}</p>
+              )}
+              {!urlError && duplicateUrlError && (
+                <p className="mt-1 text-xs text-destructive">{duplicateUrlError}</p>
               )}
             </div>
             <div>
@@ -1104,6 +1192,7 @@ export default function SaveForm({
         overLimit,
         isEdit,
         footerMessage,
+        footerTone,
         primaryLabel,
         primaryDisabled,
         onSave: handleSave,
