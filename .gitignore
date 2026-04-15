@@ -46,4 +46,5 @@ coverage
 # 临时文件
 *.tmp
 *.cache
+tmp/
 .vercel

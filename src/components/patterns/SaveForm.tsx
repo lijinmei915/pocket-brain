@@ -244,6 +244,10 @@ interface SaveFormProps {
   }) => React.ReactNode
 }
 
+type FormTab = 'bookmark' | 'note' | 'file'
+
+type TagStateMap = Record<FormTab, ConfirmedTagDraft[]>
+
 // ── 组件 ─────────────────────────────────────────────────────────────────────
 
 export default function SaveForm({
@@ -259,7 +263,7 @@ export default function SaveForm({
   const isEdit = !!editItem
 
   // 初始 tab 由 editItem 决定
-  const [tab, setTab] = useState<'bookmark' | 'note' | 'file'>(() =>
+  const [tab, setTab] = useState<FormTab>(() =>
     editItem?.type === 'note' ? 'note' : 'bookmark'
   )
 
@@ -280,18 +284,25 @@ export default function SaveForm({
   const [previewTags, setPreviewTags] = useState<ConfirmedTagDraft[]>(
     []
   )
-  const [selectedTags, setSelectedTags] = useState<ConfirmedTagDraft[]>(
-    (editItem?.tags || []).map(tag => ({
-      name: tag.name,
-      type: tag.type,
-      appliedBy: tag.appliedBy === 'user' ? 'user' as const : 'ai' as const,
-    }))
-  )
+  const initialEditTags = (editItem?.tags || []).map(tag => ({
+    name: tag.name,
+    type: tag.type,
+    appliedBy: tag.appliedBy === 'user' ? 'user' as const : 'ai' as const,
+  }))
+  const [selectedTagsByTab, setSelectedTagsByTab] = useState<TagStateMap>({
+    bookmark: editItem?.type === 'note' ? [] : initialEditTags,
+    note: editItem?.type === 'note' ? initialEditTags : [],
+    file: [],
+  })
   const [tagLibrary, setTagLibrary] = useState<Array<{ name: string; type: ItemTag['type'] }>>([])
   const [dismissedSuggestionKeys, setDismissedSuggestionKeys] = useState<string[]>([])
   const [previewError, setPreviewError] = useState('')
   const [previewSlowMessage, setPreviewSlowMessage] = useState('')
-  const [draftTagName, setDraftTagName] = useState('')
+  const [draftTagNames, setDraftTagNames] = useState<Record<FormTab, string>>({
+    bookmark: '',
+    note: '',
+    file: '',
+  })
   const [tagInputError, setTagInputError] = useState('')
   const [saveError, setSaveError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -515,6 +526,8 @@ export default function SaveForm({
   const totalSizeMB   = files.reduce((sum, f) => sum + f.size / (1024 * 1024), 0)
   const overLimit     = totalSizeMB > TOTAL_LIMIT_MB
   const validFolderIds = new Set(folders.map(folder => folder.id))
+  const selectedTags = selectedTagsByTab[tab]
+  const draftTagName = draftTagNames[tab]
   const canonicalPreviewTags = dedupeTags(previewTags.map(tag => resolveCanonicalTag(tag, tagLibrary)))
   const selectedTagKeys = new Set(selectedTags.map(getTagMatchKey))
   const dismissedSuggestionKeySet = new Set(dismissedSuggestionKeys)
@@ -596,10 +609,24 @@ export default function SaveForm({
     if (saveError) setSaveError('')
   }
 
+  function updateSelectedTagsForTab(targetTab: FormTab, updater: (prev: ConfirmedTagDraft[]) => ConfirmedTagDraft[]) {
+    setSelectedTagsByTab(prev => ({
+      ...prev,
+      [targetTab]: updater(prev[targetTab]),
+    }))
+  }
+
+  function setDraftTagNameForTab(targetTab: FormTab, value: string) {
+    setDraftTagNames(prev => ({
+      ...prev,
+      [targetTab]: value,
+    }))
+  }
+
   function handleRemoveSelectedTag(tagToRemove: ConfirmedTagDraft) {
     const removedKey = getTagMatchKey(tagToRemove)
-    setSelectedTags(prev => prev.filter(tag => !isSameTag(tag, tagToRemove)))
-    if (previewTags.some(tag => getTagMatchKey(tag) === removedKey)) {
+    updateSelectedTagsForTab(tab, prev => prev.filter(tag => !isSameTag(tag, tagToRemove)))
+    if (tab === 'bookmark' && previewTags.some(tag => getTagMatchKey(tag) === removedKey)) {
       setDismissedSuggestionKeys(prev => prev.filter(key => key !== removedKey))
     }
   }
@@ -620,17 +647,17 @@ export default function SaveForm({
 
     setTagInputError('')
 
-    setSelectedTags(prev => {
-      return [...prev, normalized]
-    })
-    const normalizedKey = getTagMatchKey(normalized)
-    setDismissedSuggestionKeys(prev => prev.filter(key => key !== normalizedKey))
-    setDraftTagName('')
+    updateSelectedTagsForTab(tab, prev => [...prev, normalized])
+    if (tab === 'bookmark') {
+      const normalizedKey = getTagMatchKey(normalized)
+      setDismissedSuggestionKeys(prev => prev.filter(key => key !== normalizedKey))
+    }
+    setDraftTagNameForTab(tab, '')
   }
 
   function handleAcceptSuggestedTag(tag: ConfirmedTagDraft) {
     const acceptedKey = getTagMatchKey(tag)
-    setSelectedTags(prev => dedupeTags([...prev, tag]))
+    updateSelectedTagsForTab('bookmark', prev => dedupeTags([...prev, tag]))
     setDismissedSuggestionKeys(prev => prev.filter(key => key !== acceptedKey))
   }
 
@@ -702,6 +729,7 @@ export default function SaveForm({
           title: content.trim().slice(0, 20) || '无标题',
           note: content.trim(),
           folderId,
+          tags: finalTags,
         })
       } else if (tab === 'file') {
         if (files.length === 0) return
@@ -714,6 +742,7 @@ export default function SaveForm({
             type: 'file',
             note: '',
             folderId,
+            tags: finalTags,
           })
         }
       } else {
@@ -748,7 +777,132 @@ export default function SaveForm({
     setDraggingTagIndex(null)
     setDragOverTagIndex(null)
     if (dragIndex === null || dragIndex === dropIndex) return
-    setSelectedTags(prev => moveTag(prev, dragIndex, dropIndex))
+    updateSelectedTagsForTab(tab, prev => moveTag(prev, dragIndex, dropIndex))
+  }
+
+  function renderTagField({
+    showAiStatus = false,
+    showSuggestions = false,
+  }: {
+    showAiStatus?: boolean
+    showSuggestions?: boolean
+  }) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-1 gap-2">
+          <label className="text-sm font-medium">标签</label>
+          {showAiStatus && !isEdit && classifyLoading && (
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
+              <Loader2 size={12} className="animate-spin" /> AI 分类中…
+            </span>
+          )}
+        </div>
+        <div className="rounded-lg border border-border/80 bg-muted/20 px-3 py-3 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="w-[52%] min-w-[12rem] max-w-[22rem] shrink-0">
+              <div className="relative flex-1">
+                <Input
+                  className="pr-11 text-sm"
+                  placeholder="自定义标签，回车添加"
+                  value={draftTagName}
+                  onChange={e => {
+                    setDraftTagNameForTab(tab, e.target.value)
+                    if (tagInputError) setTagInputError('')
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleAddUserTag()
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddUserTag}
+                  aria-label="添加标签"
+                  className={cn(
+                    'absolute inset-y-1.5 right-2 inline-flex items-center rounded-sm px-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                    draftTagName.trim()
+                      ? 'text-foreground hover:text-primary'
+                      : 'text-muted-foreground/60 hover:text-muted-foreground'
+                  )}
+                >
+                  <Check size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {tagInputError && (
+            <p className="text-xs text-amber-700">{tagInputError}</p>
+          )}
+
+          <div className="space-y-2">
+            {selectedTags.length > 0 && (
+              <div className="text-[11px] font-medium text-muted-foreground">已选标签</div>
+            )}
+            {selectedTags.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {selectedTags.map((tag, index) => (
+                  <div
+                    key={`${tag.type}:${tag.name}:${tag.appliedBy}`}
+                    draggable
+                    onDragStart={() => handleTagDragStart(index)}
+                    onDragOver={event => {
+                      event.preventDefault()
+                      if (draggingTagIndex !== null && draggingTagIndex !== index) {
+                        setDragOverTagIndex(index)
+                      }
+                    }}
+                    onDrop={() => handleTagDrop(index)}
+                    onDragEnd={() => {
+                      dragIndexRef.current = null
+                      setDraggingTagIndex(null)
+                      setDragOverTagIndex(null)
+                    }}
+                    className={cn(
+                      'rounded-full transition-all cursor-grab active:cursor-grabbing',
+                      draggingTagIndex === index && 'scale-[0.98] opacity-45',
+                      dragOverTagIndex === index && draggingTagIndex !== index && 'ring-2 ring-primary/35 ring-offset-2 ring-offset-background'
+                    )}
+                    title="拖拽调整顺序"
+                  >
+                    <TagChip
+                      tone={getTagChipTone(tag)}
+                      onRemove={() => handleRemoveSelectedTag(tag)}
+                      className="transition-colors hover:border-border hover:bg-muted/40"
+                    >
+                      {tag.name}
+                    </TagChip>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {showSuggestions && suggestedTags.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="text-[11px] font-medium text-muted-foreground">AI 推荐（可选）</div>
+                <p className="text-[11px] text-muted-foreground/70">点击加入已选</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {suggestedTags.map(tag => (
+                  <TagChip
+                    key={`suggested:${tag.type}:${tag.name}:${tag.appliedBy}`}
+                    tone={getTagChipTone(tag)}
+                    onClick={() => handleAcceptSuggestedTag(tag)}
+                    className="cursor-pointer"
+                  >
+                    {tag.name}
+                  </TagChip>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
   }
 
   // 两个 Fragment 子节点作为 flex 容器（父）的直接子元素
@@ -811,118 +965,7 @@ export default function SaveForm({
             </div>
             {renderFolderField()}
             <div>
-              <div className="flex items-center justify-between mb-1 gap-2">
-                <label className="text-sm font-medium">标签</label>
-                {!isEdit && classifyLoading && (
-                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
-                    <Loader2 size={12} className="animate-spin" /> AI 分类中…
-                  </span>
-                )}
-              </div>
-              <div className="rounded-lg border border-border/80 bg-muted/20 px-3 py-3 space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="w-[52%] min-w-[12rem] max-w-[22rem] shrink-0">
-                    <div className="relative flex-1">
-                      <Input
-                        className="pr-11 text-sm"
-                        placeholder="自定义标签，回车添加"
-                        value={draftTagName}
-                        onChange={e => {
-                          setDraftTagName(e.target.value)
-                          if (tagInputError) setTagInputError('')
-                        }}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault()
-                            handleAddUserTag()
-                          }
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAddUserTag}
-                        aria-label="添加标签"
-                        className={cn(
-                          'absolute inset-y-1.5 right-2 inline-flex items-center rounded-sm px-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-                          draftTagName.trim()
-                            ? 'text-foreground hover:text-primary'
-                            : 'text-muted-foreground/60 hover:text-muted-foreground'
-                        )}
-                      >
-                        <Check size={14} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {tagInputError && (
-                  <p className="text-xs text-amber-700">{tagInputError}</p>
-                )}
-
-                <div className="space-y-2">
-                  {finalTags.length > 0 && (
-                    <div className="text-[11px] font-medium text-muted-foreground">已选标签</div>
-                  )}
-                  {finalTags.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {finalTags.map((tag, index) => (
-                        <div
-                          key={`${tag.type}:${tag.name}:${tag.appliedBy}`}
-                          draggable
-                          onDragStart={() => handleTagDragStart(index)}
-                          onDragOver={event => {
-                            event.preventDefault()
-                            if (draggingTagIndex !== null && draggingTagIndex !== index) {
-                              setDragOverTagIndex(index)
-                            }
-                          }}
-                          onDrop={() => handleTagDrop(index)}
-                          onDragEnd={() => {
-                            dragIndexRef.current = null
-                            setDraggingTagIndex(null)
-                            setDragOverTagIndex(null)
-                          }}
-                          className={cn(
-                            'rounded-full transition-all cursor-grab active:cursor-grabbing',
-                            draggingTagIndex === index && 'scale-[0.98] opacity-45',
-                            dragOverTagIndex === index && draggingTagIndex !== index && 'ring-2 ring-primary/35 ring-offset-2 ring-offset-background'
-                          )}
-                          title="拖拽调整顺序"
-                        >
-                          <TagChip
-                            tone={getTagChipTone(tag)}
-                            onRemove={() => handleRemoveSelectedTag(tag)}
-                            className="transition-colors hover:border-border hover:bg-muted/40"
-                          >
-                            {tag.name}
-                          </TagChip>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {suggestedTags.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="text-[11px] font-medium text-muted-foreground">AI 推荐（可选）</div>
-                      <p className="text-[11px] text-muted-foreground/70">点击加入已选</p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {suggestedTags.map(tag => (
-                        <TagChip
-                          key={`suggested:${tag.type}:${tag.name}:${tag.appliedBy}`}
-                          tone={getTagChipTone(tag)}
-                          onClick={() => handleAcceptSuggestedTag(tag)}
-                          className="cursor-pointer"
-                        >
-                          {tag.name}
-                        </TagChip>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              {renderTagField({ showAiStatus: true, showSuggestions: true })}
             </div>
             <div>
               <div className="flex items-center justify-between mb-1 gap-2">
@@ -972,19 +1015,22 @@ export default function SaveForm({
 
         {/* ── 记录 tab ── */}
         {tab === 'note' && (
-          <div className="flex flex-col border border-input rounded-md overflow-hidden bg-transparent" style={{ height: '300px' }}>
-            <Textarea
-              placeholder="记录想法、摘录、代码片段…"
-              value={content} maxLength={1000}
-              onChange={e => setContent(e.target.value)} autoFocus
-              className="min-h-0 flex-1 resize-none overflow-y-auto rounded-none border-0 px-3 py-3 text-sm shadow-none focus-visible:border-transparent focus-visible:ring-0"
-            />
-            <div className="border-t border-input px-3 py-1.5 shrink-0 text-right">
-              <span className={cn('text-[11px]', content.length >= 1000 ? 'text-destructive' : 'text-muted-foreground')}>
-                {content.length} / 1000
-              </span>
+          <>
+            <div className="flex flex-col border border-input rounded-md overflow-hidden bg-transparent" style={{ height: '300px' }}>
+              <Textarea
+                placeholder="记录想法、摘录、代码片段…"
+                value={content} maxLength={1000}
+                onChange={e => setContent(e.target.value)} autoFocus
+                className="min-h-0 flex-1 resize-none overflow-y-auto rounded-none border-0 px-3 py-3 text-sm shadow-none focus-visible:border-transparent focus-visible:ring-0"
+              />
+              <div className="border-t border-input px-3 py-1.5 shrink-0 text-right">
+                <span className={cn('text-[11px]', content.length >= 1000 ? 'text-destructive' : 'text-muted-foreground')}>
+                  {content.length} / 1000
+                </span>
+              </div>
             </div>
-          </div>
+            {renderTagField({ showAiStatus: false, showSuggestions: false })}
+          </>
         )}
 
         {/* ── 资源 tab ── */}
@@ -1043,6 +1089,7 @@ export default function SaveForm({
             {uploadError && (
               <p className="text-xs text-destructive bg-destructive/10 rounded-md px-3 py-2">{uploadError}</p>
             )}
+            {renderTagField({ showAiStatus: false, showSuggestions: false })}
           </div>
         )}
 
