@@ -5,6 +5,11 @@ export interface ItemTag {
   appliedBy: 'ai' | 'user'
 }
 
+type TagDraft = {
+  name: string
+  type: ItemTag['type']
+}
+
 export interface BookmarkItem {
   id?: string
   title: string
@@ -32,6 +37,7 @@ const HEADERS = {
   Authorization: 'Bearer ' + SUPABASE_KEY,
   'Content-Type': 'application/json',
 }
+const DEFAULT_TAG_USER_ID = '00000000-0000-0000-0000-000000000001'
 
 async function rest(path: string, options: RestOptions = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
@@ -97,6 +103,113 @@ export async function updateItem(id, changes) {
 
 export async function deleteItem(id) {
   await rest(`/items?id=eq.${id}`, { method: 'DELETE' })
+}
+
+function normalizeTagDrafts(tags: TagDraft[]) {
+  const seen = new Set<string>()
+  const result: TagDraft[] = []
+
+  for (const tag of Array.isArray(tags) ? tags : []) {
+    const name = String(tag?.name || '').replace(/^#/, '').trim()
+    const type = String(tag?.type || '').trim().toLowerCase()
+    if (!name || !['content', 'status', 'source'].includes(type)) continue
+
+    const key = `${type}:${name.toLowerCase()}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push({ name, type: type as ItemTag['type'] })
+  }
+
+  return result
+}
+
+function isMissingColumnError(error: unknown, column: string) {
+  const message = error instanceof Error ? error.message : String(error)
+  return message.includes(`column ${column}`) || message.includes(`Could not find the '${column}' column`)
+}
+
+async function tagsUseUserId() {
+  try {
+    await rest(`/tags?select=id&user_id=eq.${encodeURIComponent(DEFAULT_TAG_USER_ID)}&limit=1`)
+    return true
+  } catch (error) {
+    if (isMissingColumnError(error, 'user_id')) return false
+    throw error
+  }
+}
+
+async function findExistingTag(tag: TagDraft) {
+  const encodedName = encodeURIComponent(tag.name)
+  const encodedType = encodeURIComponent(tag.type)
+
+  if (await tagsUseUserId()) {
+    const rows = await rest(
+      `/tags?select=id,name,type&user_id=eq.${encodeURIComponent(DEFAULT_TAG_USER_ID)}&name=eq.${encodedName}&type=eq.${encodedType}&limit=1`
+    )
+    if (Array.isArray(rows) && rows[0]) return rows[0]
+  }
+
+  const rows = await rest(`/tags?select=id,name,type&name=eq.${encodedName}&type=eq.${encodedType}&limit=1`)
+  return Array.isArray(rows) && rows[0] ? rows[0] : null
+}
+
+async function createTag(tag: TagDraft) {
+  const body: Record<string, unknown> = {
+    name: tag.name,
+    type: tag.type,
+  }
+
+  if (await tagsUseUserId()) {
+    body.user_id = DEFAULT_TAG_USER_ID
+  }
+
+  const rows = await rest('/tags?select=id,name,type', {
+    method: 'POST',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify(body),
+  })
+
+  return Array.isArray(rows) && rows[0] ? rows[0] : null
+}
+
+async function ensureTag(tag: TagDraft) {
+  return (await findExistingTag(tag)) || (await createTag(tag))
+}
+
+export async function replaceUserTagsForItem(itemId: string, tags: TagDraft[]) {
+  const desiredTags = normalizeTagDrafts(tags)
+  const currentRows = await rest(
+    `/item_tags?item_id=eq.${encodeURIComponent(itemId)}&select=tag_id,applied_by,tags(id,name,type)`
+  )
+
+  const currentUserRows = (Array.isArray(currentRows) ? currentRows : []).filter(row => row?.applied_by === 'user')
+  const desiredTagIds = new Set<string>()
+
+  for (const tag of desiredTags) {
+    const ensured = await ensureTag(tag)
+    if (!ensured?.id) continue
+
+    desiredTagIds.add(ensured.id)
+    await rest('/item_tags', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({
+        item_id: itemId,
+        tag_id: ensured.id,
+        applied_by: 'user',
+      }),
+    })
+  }
+
+  for (const row of currentUserRows) {
+    if (!row?.tag_id || desiredTagIds.has(row.tag_id)) continue
+    await rest(
+      `/item_tags?item_id=eq.${encodeURIComponent(itemId)}&tag_id=eq.${encodeURIComponent(row.tag_id)}&applied_by=eq.user`,
+      { method: 'DELETE' }
+    )
+  }
+
+  return fetchItem(itemId)
 }
 
 // ── Folders ──

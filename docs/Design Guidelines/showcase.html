@@ -278,7 +278,8 @@
     <div class="tree-group">
       <div class="tree-group-label">Primitive</div>
       <a class="tree-item" onclick="showSection('buttons')">按钮 Button</a>
-      <a class="tree-item" onclick="showSection('badges')">标签 TagChip</a>
+      <a class="tree-item" onclick="showSection('dialog-shell')">弹窗 Dialog</a>
+      <a class="tree-item" onclick="showSection('badges')">标签 Badge</a>
       <a class="tree-item" onclick="showSection('forms')">表单 Form Fields</a>
     </div>
     <div class="tree-group">
@@ -419,7 +420,7 @@
           <tr>
             <td>Primitive</td>
             <td><code>Badge</code>（shadcn/ui）</td>
-            <td><code>TagChip</code></td>
+            <td><code>Badge</code></td>
             <td><code>docs/design/tag-chip.md</code></td>
             <td>SaveForm、ItemGrid、ItemDetailPage</td>
           </tr>
@@ -453,7 +454,7 @@
           </tr>
           <tr>
             <td>Pattern</td>
-            <td><code>Card</code> / <code>Button</code> / <code>TagChip</code></td>
+            <td><code>Card</code> / <code>Button</code> / <code>Badge</code></td>
             <td>Item 卡片模式</td>
             <td><code>docs/design/consistency.md</code> / <code>docs/design/tags.md</code></td>
             <td>ItemGrid、搜索结果、分类视图</td>
@@ -474,7 +475,7 @@
           </tr>
           <tr>
             <td>Pattern</td>
-            <td><code>Card</code> / <code>TagChip</code> / <code>MoreButton</code></td>
+            <td><code>Card</code> / <code>Badge</code> / <code>MoreButton</code></td>
             <td><code>ItemGrid</code></td>
             <td>待补</td>
             <td>首页内容网格、分类结果、搜索结果</td>
@@ -648,24 +649,30 @@
     <!-- Badges -->
     <section class="section" id="badges">
       <div class="section-head">
-        <div class="section-title">Primitive / TagChip</div>
+        <div class="section-title">Primitive / Badge</div>
         <span class="doc-ref">docs/design/tag-chip.md</span>
       </div>
       <div class="preview-group">
-        <div class="group-label">唯一保留样式</div>
+        <div class="group-label">底层原语</div>
         <div class="badge-row" id="type-tags"></div>
         <div class="spec-block" data-spec-id="badge-typetag">
-          <p class="spec-note">Pocket Brain 的标签只保留一套样式，直接跟随 shadcn <code class="inline">Badge</code>。类型、来源、AI、用户标签都使用同一种外观，不再额外定义第二套标签视觉系统；<code class="inline">item.type</code> 仍是独立字段，只是在展示时映射成第一颗 chip。</p>
+          <p class="spec-note">Pocket Brain 的标签样式直接使用 shadcn <code class="inline">Badge</code>。如果代码里还保留 <code class="inline">TagChip</code> 命名，它也只视为实现层薄包装，不代表另一套设计系统组件。</p>
           <ul class="spec-list warn">
             <li>禁止再做一套单独的“类型徽章”，所有标签统一复用 shadcn <code class="inline">Badge</code> 这套样式</li>
             <li>禁止加图标，chip 只保留文字信息</li>
-            <li>类型 chip 永远排第一，但不参与标签增删逻辑</li>
             <li>不要再额外做一段 tone 展示或用颜色、大小、粗细制造 Type / Source / AI / User 的视觉层级</li>
+            <li>不要把项目规则写死进底层 Badge 包装里</li>
           </ul>
         </div>
       </div>
       <div class="spec-block" data-spec-id="badge-system">
-        <p class="spec-note"><code class="inline">tone</code> 如果保留，也只作为代码层语义字段存在，不单独映射成第二套展示区。设计规范层只保留一套 shadcn Badge 样式。</p>
+        <p class="spec-note"><code class="inline">tone</code> 如果保留，也只作为代码层语义字段存在。设计规范层只保留一套 shadcn <code class="inline">Badge</code> 样式。</p>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">项目规则</div>
+        <div class="spec-block" data-spec-id="badge-product-rules" style="margin-top:0;padding-top:0;border-top:none">
+          <p class="spec-note">无 AI 推荐时，只展示已有用户标签并允许继续新增；有 AI 推荐时，展示用户标签 + 去重后的来源/内容推荐标签。保存后，以对话框里最后留下的标签集合为准；列表页只展示最终保存的标签，如果最终没有任何标签，默认显示 <code class="inline">其他</code>。</p>
+        </div>
       </div>
     </section>
 

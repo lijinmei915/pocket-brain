@@ -4,8 +4,8 @@
 
 ## 当前状态速览（每次收尾更新，保持 5 行以内）
 
-- **上次做到**：ConfirmDialog 改用 shadcn AlertDialog 标准组件；SaveForm 来源标签自动检测 + 类型标签 AI 生成 + 自定义标签去掉类型下拉 + 备注合并进标签区；Prompt 优化摘要和标签质量
-- **下一步**：线上验证标签保存是否正常；跑批量验证分类准确率
+- **上次做到**：移动文件夹乐观更新；TagChip 统一为 shadcn Badge 基底；标签系统用户标签回退保存；showcase.html Badge 规范同步
+- **下一步**：验证标签持久化（检查 item_tags/tags 表 RLS 策略）；跑批量验证分类准确率
 - **线上地址**：https://pocketbrain.me
 
 ---

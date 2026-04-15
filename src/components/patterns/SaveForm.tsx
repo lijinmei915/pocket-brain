@@ -5,7 +5,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { TagChip, ITEM_TYPE_LABELS, getTagChipTone, sortDisplayTags } from '@/components/ui/tag-chip'
+import { TagChip, getTagChipTone, sortDisplayTags } from '@/components/ui/tag-chip'
 import { cn } from '@/lib/utils'
 import { uploadFile } from '@/utils/supabase'
 import { classifyPreview } from '@/utils/item-service'
@@ -66,33 +66,6 @@ function getSingleFileHint(file: File): string | null {
   return file.size / (1024 * 1024) > rule.limit ? rule.message : null
 }
 
-function detectSourceTag(url: string): string | null {
-  const lower = url.toLowerCase()
-  const rules: [RegExp, string][] = [
-    [/github\.com/, 'GitHub'],
-    [/youtube\.com|youtu\.be/, 'YouTube'],
-    [/bilibili\.com/, 'Bilibili'],
-    [/x\.com|twitter\.com/, 'X'],
-    [/xiaohongshu\.com/, '小红书'],
-    [/weibo\.com/, '微博'],
-    [/spotify\.com/, 'Spotify'],
-    [/notion\.site|notion\.so/, 'Notion'],
-    [/figma\.com/, 'Figma'],
-    [/mp\.weixin\.qq\.com/, '公众号'],
-    [/zhihu\.com/, '知乎'],
-    [/juejin\.cn/, '掘金'],
-  ]
-  const match = rules.find(([pattern]) => pattern.test(lower))
-  if (match) return match[1]
-  try {
-    const hostname = new URL(url).hostname.replace(/^www\./, '')
-    const root = hostname.split('.').slice(-2, -1)[0]
-    return root ? root.charAt(0).toUpperCase() + root.slice(1) : null
-  } catch {
-    return null
-  }
-}
-
 function isSameTag(a: Pick<ConfirmedTagDraft, 'name' | 'type'>, b: Pick<ConfirmedTagDraft, 'name' | 'type'>) {
   return a.type === b.type && a.name.trim().toLowerCase() === b.name.trim().toLowerCase()
 }
@@ -107,7 +80,7 @@ function normalizeDraftTag(name: string, type: ItemTag['type']): ConfirmedTagDra
   }
 }
 
-function buildCombinedTags(previewTags: ConfirmedTagDraft[], userTags: ConfirmedTagDraft[]) {
+  function buildCombinedTags(previewTags: ConfirmedTagDraft[], userTags: ConfirmedTagDraft[]) {
   const result: ConfirmedTagDraft[] = []
 
   for (const tag of userTags) {
@@ -214,19 +187,6 @@ export default function SaveForm({
   useEffect(() => {
     if (initialTitle && !titleTouched) setTitle(initialTitle)
   }, [initialTitle])
-
-  // URL 变化时自动生成来源标签
-  useEffect(() => {
-    const trimmedUrl = url.trim()
-    if (!trimmedUrl) return
-    const source = detectSourceTag(trimmedUrl)
-    if (!source) return
-    const sourceTag: ConfirmedTagDraft = { name: source, type: 'source', appliedBy: 'ai' }
-    setPreviewTags(prev => {
-      const withoutOldSource = prev.filter(t => t.type !== 'source')
-      return [sourceTag, ...withoutOldSource]
-    })
-  }, [url])
 
   // URL / 标题 / 备注改变时，自动分类
   useEffect(() => {
@@ -444,6 +404,7 @@ export default function SaveForm({
           summary: summary.trim() || undefined,
           categoryId: previewCategoryId,
           confidence: previewConfidence,
+          // 最终保存结果以对话框中最后留下的标签为准
           tags: combinedTags,
         })
       }
@@ -527,17 +488,6 @@ export default function SaveForm({
               </div>
               <div className="rounded-lg border border-border/80 bg-muted/20 px-3 py-3 space-y-3">
                 <div className="flex flex-wrap gap-2">
-                  {type && type !== 'other' && (
-                    <TagChip
-                      tone="type"
-                      onRemove={() => {
-                        setType('other')
-                        setTypeTouched(true)
-                      }}
-                    >
-                      {ITEM_TYPE_LABELS[type] || type}
-                    </TagChip>
-                  )}
                   {sortDisplayTags(combinedTags).map(tag => (
                     <TagChip
                       key={`${tag.type}:${tag.name}:${tag.appliedBy}`}

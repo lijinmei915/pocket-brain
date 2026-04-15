@@ -3,6 +3,7 @@ import {
   fetchItem,
   type BookmarkItem,
   type ItemTag,
+  replaceUserTagsForItem,
   updateItem as updateItemRecord,
 } from '@/utils/supabase'
 
@@ -77,6 +78,43 @@ async function resolveFinalItem(item: BookmarkItem, classification: Record<strin
 
   const refreshed = item.id ? await fetchItem(item.id) : null
   return refreshed || mergeClassification(item, classification)
+}
+
+async function resolveFinalItemWithUserTagFallback(
+  item: BookmarkItem,
+  classification: Record<string, unknown> | null,
+  confirmedTags: ConfirmedTagDraft[] | undefined
+) {
+  if (classification) {
+    return resolveFinalItem(item, classification)
+  }
+
+  const desiredUserTags = (Array.isArray(confirmedTags) ? confirmedTags : []).filter(tag => tag.appliedBy === 'user')
+  if (!item.id || desiredUserTags.length === 0) {
+    return item
+  }
+
+  try {
+    const refreshed = await replaceUserTagsForItem(
+      item.id,
+      desiredUserTags.map(tag => ({
+        name: tag.name,
+        type: tag.type,
+      }))
+    )
+    return refreshed || item
+  } catch (error) {
+    console.error('[PB] user tag fallback save failed:', error)
+    return {
+      ...item,
+      tags: desiredUserTags.map((tag, index) => ({
+        id: `local-user-${index}-${tag.type}-${tag.name}`,
+        name: tag.name,
+        type: tag.type,
+        appliedBy: 'user' as const,
+      })),
+    }
+  }
 }
 
 async function applyClassification(item: BookmarkItem) {
@@ -176,7 +214,11 @@ export async function createItemWithClassification(item: Partial<BookmarkItem>) 
         tags: Array.isArray(item.tags) ? (item.tags as ConfirmedTagDraft[]) : [],
       })
     : await applyClassification(created)
-  return resolveFinalItem(created, classified)
+  return resolveFinalItemWithUserTagFallback(
+    created,
+    classified,
+    Array.isArray(item.tags) ? (item.tags as ConfirmedTagDraft[]) : undefined
+  )
 }
 
 export async function updateItemWithClassification(id: string, changes: Partial<BookmarkItem>) {
@@ -199,7 +241,11 @@ export async function updateItemWithClassification(id: string, changes: Partial<
         tags: Array.isArray(changes.tags) ? (changes.tags as ConfirmedTagDraft[]) : [],
       })
     : await applyClassification(updated)
-  return resolveFinalItem(updated, classified)
+  return resolveFinalItemWithUserTagFallback(
+    updated,
+    classified,
+    Array.isArray(changes.tags) ? (changes.tags as ConfirmedTagDraft[]) : undefined
+  )
 }
 
 export async function refreshItemAfterClassification(id: string) {

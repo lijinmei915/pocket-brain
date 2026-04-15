@@ -8,7 +8,7 @@ import Sidebar from '@/components/layout/Sidebar'
 import ItemGrid from '@/components/patterns/ItemGrid'
 import AddItemDialog from '@/components/patterns/AddItemDialog'
 import DesignPanel from '@/components/patterns/DesignPanel'
-import { fetchItems, fetchFolders, deleteItem, createFolder, renameFolder, deleteFolder } from '@/utils/supabase'
+import { fetchItems, fetchFolders, deleteItem, updateItem, createFolder, renameFolder, deleteFolder } from '@/utils/supabase'
 import { createItemWithClassification, updateItemWithClassification } from '@/utils/item-service'
 
 function guessType(url) {
@@ -93,6 +93,19 @@ export default function App() {
     }
   }, [])
 
+  const handleMoveItem = useCallback(async (id, newFolderId) => {
+    // 乐观更新：先改 UI，再写库
+    setItems(prev => prev.map(i => i.id === id ? { ...i, folderId: newFolderId } : i))
+    try {
+      await updateItem(id, { folderId: newFolderId })
+    } catch (err) {
+      console.error('[PB] move error:', err)
+      // 失败回滚：重新拉取
+      const fresh = await fetchItems()
+      setItems(fresh)
+    }
+  }, [])
+
   const handleDeleteItem = useCallback(async (id) => {
     try {
       await deleteItem(id)
@@ -168,6 +181,7 @@ export default function App() {
             loading={loading}
             selectedFolder={selectedFolder}
             onUpdate={handleUpdateItem}
+            onMove={handleMoveItem}
             onDelete={handleDeleteItem}
             onAdd={openAdd}
             onEdit={openEdit}

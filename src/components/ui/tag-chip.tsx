@@ -13,16 +13,8 @@ export const ITEM_TYPE_LABELS: Record<string, string> = {
   file: '资料',
 }
 
-const TONE_STYLES = {
-  type: 'bg-muted/45 text-muted-foreground border-border/60',
-  source: 'bg-muted/45 text-muted-foreground border-border/60',
-  ai: 'bg-muted/45 text-muted-foreground border-border/60',
-  user: 'bg-muted/45 text-muted-foreground border-border/60',
-  muted: 'bg-muted/55 text-muted-foreground border-border/60',
-}
-
-const baseChipClassName =
-  'h-[22px] rounded-full px-2 text-[11px] font-medium leading-none shadow-none'
+const defaultBadgeClassName = 'max-w-full gap-1 rounded-full px-2'
+const mutedBadgeClassName = 'max-w-full gap-1 rounded-full px-2 opacity-70'
 
 export function getTagChipTone(tag?: { type?: string; appliedBy?: string }) {
   if (tag?.appliedBy === 'user') return 'user'
@@ -46,7 +38,8 @@ export function sortDisplayTags(tags = []) {
 
 interface TagChipProps {
   children: React.ReactNode
-  tone?: keyof typeof TONE_STYLES
+  // tone is semantic only; visual style still follows the same Badge baseline.
+  tone?: 'type' | 'source' | 'ai' | 'user' | 'muted'
   className?: string
   onClick?: () => void
   onRemove?: () => void
@@ -62,10 +55,9 @@ export function TagChip({
   disabled = false,
 }: TagChipProps) {
   const chipClassName = cn(
-    baseChipClassName,
-    'inline-flex max-w-full items-center gap-1 transition-colors',
+    tone === 'muted' ? mutedBadgeClassName : defaultBadgeClassName,
+    'inline-flex items-center transition-colors',
     disabled && 'opacity-50',
-    TONE_STYLES[tone],
     className
   )
 

@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Plus, ExternalLink, Trash2, Pencil, Inbox, Menu, FolderInput } from 'lucide-react'
 import { MoreButton } from '@/components/ui/MoreButton'
-import { ITEM_TYPE_LABELS, TagChip, sortDisplayTags } from '@/components/ui/tag-chip'
+import { TagChip, sortDisplayTags } from '@/components/ui/tag-chip'
 import ConfirmDialog from '@/components/patterns/ConfirmDialog'
 
 function getFavicon(url) {
@@ -32,13 +32,24 @@ function getDomain(url) {
 
 function getVisibleTags(tags = []) {
   const priority = { user: 0, ai: 1, content: 0, status: 1, source: 2 }
-  return [...tags]
+  const sorted = [...tags]
     .sort((a, b) => {
       const appliedDiff = (priority[a.appliedBy] ?? 9) - (priority[b.appliedBy] ?? 9)
       if (appliedDiff !== 0) return appliedDiff
       return (priority[a.type] ?? 9) - (priority[b.type] ?? 9)
     })
     .slice(0, 3)
+
+  if (sorted.length > 0) return sorted
+
+  return [
+    {
+      id: 'fallback-other',
+      name: '其他',
+      type: 'content',
+      appliedBy: 'ai',
+    },
+  ]
 }
 
 function ItemCard({ item, folders, onDelete, onEdit, onMove, folderOptions = [] }) {
@@ -112,11 +123,10 @@ function ItemCard({ item, folders, onDelete, onEdit, onMove, folderOptions = [] 
         </div>
       </div>
 
-      {(item.summary || displayTags.length > 0 || item.type) && (
+      {(item.summary || displayTags.length > 0) && (
         <div className="space-y-2">
           <div className="flex items-start justify-between gap-2">
             <div className="flex min-w-0 flex-1 flex-wrap gap-1">
-              <TagChip tone="type">{ITEM_TYPE_LABELS[item.type] || '其他'}</TagChip>
               {displayTags.map(tag => (
                 <TagChip
                   key={`${item.id}-${tag.id}-${tag.appliedBy}`}
@@ -164,7 +174,7 @@ const SECTION_TITLES = {
   all: '全部内容',
 }
 
-export default function ItemGrid({ items, folders, loading, selectedFolder, onUpdate, onDelete, onAdd, onEdit, onMobileMenuOpen }) {
+export default function ItemGrid({ items, folders, loading, selectedFolder, onUpdate, onMove, onDelete, onAdd, onEdit, onMobileMenuOpen }) {
   const [deleteId, setDeleteId] = useState(null)
 
   const sectionTitle = SECTION_TITLES[selectedFolder]
@@ -178,8 +188,8 @@ export default function ItemGrid({ items, folders, loading, selectedFolder, onUp
     setDeleteId(null)
   }
 
-  async function handleMove(item, folderId) {
-    await onUpdate(item.id, { folderId })
+  function handleMove(item, folderId) {
+    onMove(item.id, folderId ?? null)
   }
 
   function buildFolderOptions(list, depth = 0) {
