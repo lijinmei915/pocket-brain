@@ -5,7 +5,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { TagChip, getTagChipTone, sortDisplayTags } from '@/components/ui/tag-chip'
+import { TagChip, getTagChipTone } from '@/components/ui/tag-chip'
 import { cn } from '@/lib/utils'
 import { uploadFile } from '@/utils/supabase'
 import { classifyPreview } from '@/utils/item-service'
@@ -80,7 +80,11 @@ function normalizeDraftTag(name: string, type: ItemTag['type']): ConfirmedTagDra
   }
 }
 
-  function buildCombinedTags(previewTags: ConfirmedTagDraft[], userTags: ConfirmedTagDraft[]) {
+function getTagIdentity(tag: Pick<ConfirmedTagDraft, 'name' | 'type' | 'appliedBy'>) {
+  return `${tag.type}:${tag.appliedBy}:${tag.name.trim().toLowerCase()}`
+}
+
+function buildCombinedTags(previewTags: ConfirmedTagDraft[], userTags: ConfirmedTagDraft[]) {
   const result: ConfirmedTagDraft[] = []
 
   for (const tag of userTags) {
@@ -96,6 +100,25 @@ function normalizeDraftTag(name: string, type: ItemTag['type']): ConfirmedTagDra
   }
 
   return result
+}
+
+function mergeTagOrder(currentOrder: ConfirmedTagDraft[], availableTags: ConfirmedTagDraft[]) {
+  const remaining = currentOrder.filter(tag =>
+    availableTags.some(existing => getTagIdentity(existing) === getTagIdentity(tag))
+  )
+  const appended = availableTags.filter(tag =>
+    !remaining.some(existing => getTagIdentity(existing) === getTagIdentity(tag))
+  )
+
+  return [...remaining, ...appended]
+}
+
+function moveTag(tags: ConfirmedTagDraft[], fromIndex: number, toIndex: number) {
+  if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return tags
+  const next = [...tags]
+  const [moved] = next.splice(fromIndex, 1)
+  next.splice(toIndex, 0, moved)
+  return next
 }
 
 let pasteCounter = 0
@@ -178,10 +201,18 @@ export default function SaveForm({
       .filter(tag => tag.appliedBy === 'user')
       .map(tag => ({ name: tag.name, type: tag.type, appliedBy: 'user' as const }))
   )
+  const [orderedTags, setOrderedTags] = useState<ConfirmedTagDraft[]>(
+    (editItem?.tags || []).map(tag => ({
+      name: tag.name,
+      type: tag.type,
+      appliedBy: tag.appliedBy === 'user' ? 'user' as const : 'ai' as const,
+    }))
+  )
   const [previewError, setPreviewError] = useState('')
   const [draftTagName, setDraftTagName] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const classifyRequestRef = useRef(0)
+  const dragIndexRef = useRef<number | null>(null)
 
   // initialTitle 异步到达时，只要用户没手动改过就填入
   useEffect(() => {
@@ -270,8 +301,9 @@ export default function SaveForm({
   const totalSizeMB   = files.reduce((sum, f) => sum + f.size / (1024 * 1024), 0)
   const overLimit     = totalSizeMB > TOTAL_LIMIT_MB
   const validFolderIds = new Set(folders.map(folder => folder.id))
-  const combinedTags = buildCombinedTags(previewTags, userTags)
-  const previewReady = summary.trim().length > 0 || combinedTags.length > 0 || Boolean(previewCategoryId)
+  const availableTags = buildCombinedTags(previewTags, userTags)
+  const finalTags = orderedTags
+  const previewReady = summary.trim().length > 0 || finalTags.length > 0 || Boolean(previewCategoryId)
   const previewPending = tab === 'bookmark' && classifyLoading && !previewReady && !previewError
   const canSave = tab === 'note'
     ? content.trim().length > 0
@@ -405,12 +437,27 @@ export default function SaveForm({
           categoryId: previewCategoryId,
           confidence: previewConfidence,
           // 最终保存结果以对话框中最后留下的标签为准
-          tags: combinedTags,
+          tags: finalTags,
         })
       }
     } finally {
       setSaving(false)
     }
+  }
+
+  useEffect(() => {
+    setOrderedTags(prev => mergeTagOrder(prev, availableTags))
+  }, [previewTags, userTags])
+
+  function handleTagDragStart(index: number) {
+    dragIndexRef.current = index
+  }
+
+  function handleTagDrop(dropIndex: number) {
+    const dragIndex = dragIndexRef.current
+    dragIndexRef.current = null
+    if (dragIndex === null || dragIndex === dropIndex) return
+    setOrderedTags(prev => moveTag(prev, dragIndex, dropIndex))
   }
 
   // 两个 Fragment 子节点作为 flex 容器（父）的直接子元素
@@ -488,14 +535,26 @@ export default function SaveForm({
               </div>
               <div className="rounded-lg border border-border/80 bg-muted/20 px-3 py-3 space-y-3">
                 <div className="flex flex-wrap gap-2">
-                  {sortDisplayTags(combinedTags).map(tag => (
-                    <TagChip
+                  {finalTags.map((tag, index) => (
+                    <div
                       key={`${tag.type}:${tag.name}:${tag.appliedBy}`}
-                      tone={getTagChipTone(tag)}
-                      onRemove={tag.appliedBy === 'user' ? () => handleRemoveUserTag(tag) : () => handleRemovePreviewTag(tag)}
+                      draggable
+                      onDragStart={() => handleTagDragStart(index)}
+                      onDragOver={event => event.preventDefault()}
+                      onDrop={() => handleTagDrop(index)}
+                      onDragEnd={() => {
+                        dragIndexRef.current = null
+                      }}
+                      className="cursor-grab active:cursor-grabbing"
+                      title="拖拽调整顺序"
                     >
-                      {tag.name}
-                    </TagChip>
+                      <TagChip
+                        tone={getTagChipTone(tag)}
+                        onRemove={tag.appliedBy === 'user' ? () => handleRemoveUserTag(tag) : () => handleRemovePreviewTag(tag)}
+                      >
+                        {tag.name}
+                      </TagChip>
+                    </div>
                   ))}
                 </div>
 

@@ -23,17 +23,7 @@ export function getTagChipTone(tag?: { type?: string; appliedBy?: string }) {
 }
 
 export function sortDisplayTags(tags = []) {
-  const priority = {
-    source: 0,
-    ai: 1,
-    user: 2,
-  }
-
-  return [...tags].sort((a, b) => {
-    const aTone = getTagChipTone(a)
-    const bTone = getTagChipTone(b)
-    return (priority[aTone] ?? 9) - (priority[bTone] ?? 9)
-  })
+  return [...tags]
 }
 
 interface TagChipProps {

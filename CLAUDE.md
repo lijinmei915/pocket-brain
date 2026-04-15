@@ -4,7 +4,7 @@
 
 ## 当前状态速览（每次收尾更新，保持 5 行以内）
 
-- **上次做到**：移动文件夹乐观更新；TagChip 统一为 shadcn Badge 基底；标签系统用户标签回退保存；showcase.html Badge 规范同步
+- **上次做到**：标签拖拽排序 + 顺序持久化（items.tags 快照）；移动文件夹乐观更新；TagChip 统一 Badge 基底
 - **下一步**：验证标签持久化（检查 item_tags/tags 表 RLS 策略）；跑批量验证分类准确率
 - **线上地址**：https://pocketbrain.me
 

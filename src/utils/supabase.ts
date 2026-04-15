@@ -294,6 +294,13 @@ function itemToDb(item: Partial<BookmarkItem>): DbRow {
   if (item.summary !== undefined) row.summary = item.summary
   if (item.categoryId !== undefined) row.category_id = item.categoryId
   if (item.aiStatus !== undefined) row.ai_status = item.aiStatus
+  if (item.tags !== undefined) {
+    row.tags = Array.isArray(item.tags)
+      ? item.tags
+          .map(tag => (typeof tag === 'string' ? tag : String(tag?.name || '').trim()))
+          .filter(Boolean)
+      : []
+  }
   return row
 }
 
@@ -333,6 +340,28 @@ function normalizeItemTags(itemTagRows: unknown, legacyTags: unknown): ItemTag[]
       if (seen.has(key)) continue
       seen.add(key)
       result.push({ id, name, type: type as ItemTag['type'], appliedBy })
+    }
+
+    const legacyOrder = Array.isArray(legacyTags)
+      ? legacyTags
+          .map(tag => (typeof tag === 'string' ? tag.trim().toLowerCase() : ''))
+          .filter(Boolean)
+      : []
+
+    if (legacyOrder.length > 0) {
+      const orderMap = new Map<string, number>()
+      legacyOrder.forEach((tagName, index) => {
+        if (!orderMap.has(tagName)) orderMap.set(tagName, index)
+      })
+
+      result.sort((a, b) => {
+        const aIndex = orderMap.get(a.name.trim().toLowerCase())
+        const bIndex = orderMap.get(b.name.trim().toLowerCase())
+        if (aIndex === undefined && bIndex === undefined) return 0
+        if (aIndex === undefined) return 1
+        if (bIndex === undefined) return -1
+        return aIndex - bIndex
+      })
     }
 
     return result

@@ -31,14 +31,7 @@ function getDomain(url) {
 }
 
 function getVisibleTags(tags = []) {
-  const priority = { user: 0, ai: 1, content: 0, status: 1, source: 2 }
-  const sorted = [...tags]
-    .sort((a, b) => {
-      const appliedDiff = (priority[a.appliedBy] ?? 9) - (priority[b.appliedBy] ?? 9)
-      if (appliedDiff !== 0) return appliedDiff
-      return (priority[a.type] ?? 9) - (priority[b.type] ?? 9)
-    })
-    .slice(0, 3)
+  const sorted = [...tags].slice(0, 3)
 
   if (sorted.length > 0) return sorted
 
