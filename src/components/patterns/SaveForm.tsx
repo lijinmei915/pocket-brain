@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
 import {
-  Upload, X, Image, FileArchive, Music, Loader2, RefreshCw, Video,
+  Upload, X, Image, FileArchive, Music, Loader2, Video, Check,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TagChip, getTagChipTone } from '@/components/ui/tag-chip'
 import { cn } from '@/lib/utils'
-import { uploadFile } from '@/utils/supabase'
+import { fetchUserTagLibrary, uploadFile } from '@/utils/supabase'
 import { classifyPreview } from '@/utils/item-service'
 import type { ConfirmedTagDraft } from '@/utils/item-service'
 import type { BookmarkItem, ItemTag } from '@/utils/supabase'
@@ -25,6 +25,7 @@ const FILE_HINTS: { test: (f: File) => boolean; limit: number; message: string }
 
 const INBOX = '__inbox__'
 const TOTAL_LIMIT_MB = 20
+const AUTO_CLASSIFY_TIMEOUT_MS = 4000
 
 // ── 工具函数 ─────────────────────────────────────────────────────────────────
 
@@ -66,6 +67,22 @@ function getSingleFileHint(file: File): string | null {
   return file.size / (1024 * 1024) > rule.limit ? rule.message : null
 }
 
+function normalizeUrlInput(value: string) {
+  return value.trim()
+}
+
+function isValidHttpUrl(value: string) {
+  const normalized = normalizeUrlInput(value)
+  if (!normalized) return false
+
+  try {
+    const parsed = new URL(normalized)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 function isSameTag(a: Pick<ConfirmedTagDraft, 'name' | 'type'>, b: Pick<ConfirmedTagDraft, 'name' | 'type'>) {
   return a.type === b.type && a.name.trim().toLowerCase() === b.name.trim().toLowerCase()
 }
@@ -84,21 +101,89 @@ function getTagIdentity(tag: Pick<ConfirmedTagDraft, 'name' | 'type' | 'appliedB
   return `${tag.type}:${tag.appliedBy}:${tag.name.trim().toLowerCase()}`
 }
 
-function buildCombinedTags(previewTags: ConfirmedTagDraft[], userTags: ConfirmedTagDraft[]) {
+function getTagMatchKey(tag: Pick<ConfirmedTagDraft, 'name' | 'type'>) {
+  return `${tag.type}:${tag.name.trim().toLowerCase()}`
+}
+
+function normalizeTagText(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/['".,!?()[\]{}\-_/\\]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function buildTagSearchTokens(value: string) {
+  const normalized = normalizeTagText(value)
+  if (!normalized) return []
+
+  const compact = normalized.replace(/\s+/g, '')
+  const singular = normalized.endsWith('s') && normalized.length > 3
+    ? normalized.slice(0, -1)
+    : normalized
+
+  return Array.from(new Set([normalized, compact, singular.replace(/\s+/g, '')].filter(Boolean)))
+}
+
+function resolveCanonicalTag(
+  tag: ConfirmedTagDraft,
+  tagLibrary: Array<{ name: string; type: ItemTag['type'] }>
+): ConfirmedTagDraft {
+  const candidates = tagLibrary.filter(candidate => candidate.type === tag.type)
+  if (candidates.length === 0) return tag
+
+  const sourceTokens = buildTagSearchTokens(tag.name)
+  if (sourceTokens.length === 0) return tag
+
+  const exactMatch = candidates.find(candidate => {
+    const candidateTokens = buildTagSearchTokens(candidate.name)
+    return candidateTokens.some(token => sourceTokens.includes(token))
+  })
+  if (exactMatch) {
+    return { ...tag, name: exactMatch.name }
+  }
+
+  const inclusiveMatch = candidates.find(candidate => {
+    const candidateTokens = buildTagSearchTokens(candidate.name)
+    return candidateTokens.some(candidateToken =>
+      sourceTokens.some(sourceToken =>
+        candidateToken.length >= 2 &&
+        sourceToken.length >= 2 &&
+        (candidateToken.includes(sourceToken) || sourceToken.includes(candidateToken))
+      )
+    )
+  })
+
+  return inclusiveMatch ? { ...tag, name: inclusiveMatch.name } : tag
+}
+
+function resolveExactCanonicalTag(
+  tag: ConfirmedTagDraft,
+  tagLibrary: Array<{ name: string; type: ItemTag['type'] }>
+): ConfirmedTagDraft {
+  const candidates = tagLibrary.filter(candidate => candidate.type === tag.type)
+  if (candidates.length === 0) return tag
+
+  const sourceTokens = buildTagSearchTokens(tag.name)
+  if (sourceTokens.length === 0) return tag
+
+  const exactMatch = candidates.find(candidate => {
+    const candidateTokens = buildTagSearchTokens(candidate.name)
+    return candidateTokens.some(token => sourceTokens.includes(token))
+  })
+
+  return exactMatch ? { ...tag, name: exactMatch.name } : tag
+}
+
+function dedupeTags(tags: ConfirmedTagDraft[]) {
   const result: ConfirmedTagDraft[] = []
 
-  for (const tag of userTags) {
+  for (const tag of tags) {
     if (!result.some(existing => isSameTag(existing, tag))) {
       result.push(tag)
     }
   }
-
-  for (const tag of previewTags) {
-    if (!result.some(existing => isSameTag(existing, tag))) {
-      result.push(tag)
-    }
-  }
-
   return result
 }
 
@@ -183,85 +268,209 @@ export default function SaveForm({
   const [title,          setTitle]          = useState(editItem?.title ?? initialTitle)
   const [titleTouched,   setTitleTouched]   = useState(false)
   const [fetchingTitle,  setFetchingTitle]  = useState(false)
+  const [urlError, setUrlError] = useState('')
   const [type,           setType]           = useState(editItem?.type  ?? 'other')
   const [note,           setNote]           = useState(editItem?.type !== 'note' ? (editItem?.note ?? '') : '')
   const [typeTouched,    setTypeTouched]    = useState(!!editItem)
   const [classifyLoading, setClassifyLoading] = useState(false)
-  const [summaryTouched, setSummaryTouched] = useState(false)
-  const [summary, setSummary] = useState(editItem?.summary ?? '')
+  const [summaryLoading, setSummaryLoading] = useState(false)
+  const [summaryError, setSummaryError] = useState('')
   const [previewCategoryId, setPreviewCategoryId] = useState<string | null>(editItem?.categoryId ?? null)
   const [previewConfidence, setPreviewConfidence] = useState<'high' | 'medium' | 'low' | null>(editItem?.confidence ?? null)
   const [previewTags, setPreviewTags] = useState<ConfirmedTagDraft[]>(
-    (editItem?.tags || [])
-      .filter(tag => tag.appliedBy !== 'user')
-      .map(tag => ({ name: tag.name, type: tag.type, appliedBy: 'ai' as const }))
+    []
   )
-  const [userTags, setUserTags] = useState<ConfirmedTagDraft[]>(
-    (editItem?.tags || [])
-      .filter(tag => tag.appliedBy === 'user')
-      .map(tag => ({ name: tag.name, type: tag.type, appliedBy: 'user' as const }))
-  )
-  const [orderedTags, setOrderedTags] = useState<ConfirmedTagDraft[]>(
+  const [selectedTags, setSelectedTags] = useState<ConfirmedTagDraft[]>(
     (editItem?.tags || []).map(tag => ({
       name: tag.name,
       type: tag.type,
       appliedBy: tag.appliedBy === 'user' ? 'user' as const : 'ai' as const,
     }))
   )
+  const [tagLibrary, setTagLibrary] = useState<Array<{ name: string; type: ItemTag['type'] }>>([])
+  const [dismissedSuggestionKeys, setDismissedSuggestionKeys] = useState<string[]>([])
   const [previewError, setPreviewError] = useState('')
+  const [previewSlowMessage, setPreviewSlowMessage] = useState('')
   const [draftTagName, setDraftTagName] = useState('')
+  const [tagInputError, setTagInputError] = useState('')
+  const [saveError, setSaveError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const classifyRequestRef = useRef(0)
+  const classifyAbortRef = useRef<AbortController | null>(null)
   const dragIndexRef = useRef<number | null>(null)
+  const [draggingTagIndex, setDraggingTagIndex] = useState<number | null>(null)
+  const [dragOverTagIndex, setDragOverTagIndex] = useState<number | null>(null)
+  const lastFetchedTitleUrlRef = useRef('')
+  const lastUrlRef = useRef(normalizeUrlInput(editItem?.url ?? initialUrl))
+  const titleSourceRef = useRef<'initial' | 'auto' | 'manual'>(
+    editItem?.title || initialTitle ? 'initial' : 'auto'
+  )
 
   // initialTitle 异步到达时，只要用户没手动改过就填入
   useEffect(() => {
     if (initialTitle && !titleTouched) setTitle(initialTitle)
   }, [initialTitle])
 
+  useEffect(() => {
+    let active = true
+
+    void fetchUserTagLibrary()
+      .then(tags => {
+        if (!active) return
+        setTagLibrary(tags)
+      })
+      .catch(error => {
+        console.error('[PB] fetch tag library failed:', error)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (tab !== 'bookmark') return undefined
+
+    const trimmedUrl = normalizeUrlInput(url)
+    if (!trimmedUrl) {
+      setUrlError('')
+      return undefined
+    }
+
+    if (!isValidHttpUrl(trimmedUrl)) {
+      setUrlError('请输入有效的 http(s) 链接')
+      return undefined
+    }
+
+    setUrlError('')
+
+    const previousUrl = lastUrlRef.current
+    if (trimmedUrl !== previousUrl) {
+      lastUrlRef.current = trimmedUrl
+      lastFetchedTitleUrlRef.current = ''
+
+      if (titleSourceRef.current !== 'manual') {
+        setTitle('')
+      }
+    }
+
+    if (titleTouched || title.trim() || fetchingTitle) return undefined
+    if (lastFetchedTitleUrlRef.current === trimmedUrl) return undefined
+
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        setFetchingTitle(true)
+        try {
+          const response = await fetch(`/api/fetch-title?url=${encodeURIComponent(trimmedUrl)}`)
+          const data = await response.json()
+          if (data?.title) {
+            lastFetchedTitleUrlRef.current = trimmedUrl
+            setTitle(data.title)
+            titleSourceRef.current = 'auto'
+          }
+        } catch (error) {
+          console.error('[PB] fetch title failed:', error)
+        } finally {
+          setFetchingTitle(false)
+        }
+      })()
+    }, 150)
+
+    return () => window.clearTimeout(timer)
+  }, [url, tab, titleTouched, title, fetchingTitle])
+
   // URL / 标题 / 备注改变时，自动分类
   useEffect(() => {
+    classifyAbortRef.current?.abort()
+
     if (tab !== 'bookmark') return undefined
 
     classifyRequestRef.current += 1
     const requestId = classifyRequestRef.current
-    const trimmedUrl = url.trim()
+    const trimmedUrl = normalizeUrlInput(url)
 
     if (!trimmedUrl) {
+      setUrlError('')
       setClassifyLoading(false)
       setPreviewError('')
+      setPreviewSlowMessage('')
       setPreviewCategoryId(null)
       setPreviewConfidence(null)
       setPreviewTags([])
-      if (!summaryTouched) setSummary('')
+      setDismissedSuggestionKeys([])
       return undefined
     }
 
-    setClassifyLoading(true)
+    if (!isValidHttpUrl(trimmedUrl)) {
+      setUrlError('请输入有效的 http(s) 链接')
+      setClassifyLoading(false)
+      setPreviewError('')
+      setPreviewSlowMessage('')
+      setPreviewCategoryId(null)
+      setPreviewConfidence(null)
+      setPreviewTags([])
+      setDismissedSuggestionKeys([])
+      return undefined
+    }
+
+    setUrlError('')
+
+    if (isEdit) {
+      setClassifyLoading(false)
+      setPreviewError('')
+      setPreviewSlowMessage('')
+      setPreviewTags([])
+      setDismissedSuggestionKeys([])
+      return undefined
+    }
+
     setPreviewError('')
+    setPreviewSlowMessage('')
     setPreviewCategoryId(null)
     setPreviewConfidence(null)
     setPreviewTags([])
-    if (!summaryTouched) setSummary('')
+    setDismissedSuggestionKeys([])
 
+    const controller = new AbortController()
+    classifyAbortRef.current = controller
     const timer = window.setTimeout(() => {
-      void autoClassify(requestId, trimmedUrl, title, note)
+      setClassifyLoading(true)
+      void autoClassify(requestId, trimmedUrl, title, note, controller)
     }, 450)
 
-    return () => window.clearTimeout(timer)
-  }, [url, title, note, tab])
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
+      if (classifyAbortRef.current === controller) {
+        classifyAbortRef.current = null
+      }
+    }
+  }, [url, title, tab])
 
-  async function autoClassify(requestId: number, nextUrl: string, nextTitle: string, nextNote: string) {
+  async function autoClassify(
+    requestId: number,
+    nextUrl: string,
+    nextTitle: string,
+    nextNote: string,
+    controller: AbortController
+  ) {
     if (!nextUrl) return
+    const { signal } = controller
+    const timeoutId = window.setTimeout(() => {
+      if (requestId === classifyRequestRef.current) {
+        setPreviewSlowMessage('AI 推荐分类较慢，标签可手动添加，或可直接保存')
+      }
+    }, AUTO_CLASSIFY_TIMEOUT_MS)
+
     try {
-      const data = await classifyPreview({ url: nextUrl, title: nextTitle, note: nextNote })
+      const data = await classifyPreview({ url: nextUrl, title: nextTitle, note: nextNote }, { signal })
       if (requestId !== classifyRequestRef.current) return
+      setPreviewSlowMessage('')
       if (!data) {
         setPreviewError('AI 预览暂时失败，可手动保存')
         return
       }
       if (data.type && !typeTouched) setType(data.type)
-      if (!summaryTouched) setSummary(data.summary || '')
       setPreviewCategoryId(data.category_id || null)
       setPreviewConfidence(data.confidence || null)
       setPreviewTags(
@@ -272,12 +481,17 @@ export default function SaveForm({
         }))
       )
     } catch (err) {
-      if (requestId !== classifyRequestRef.current) return
+      if (signal.aborted || requestId !== classifyRequestRef.current) return
       console.error('[PB] classify error:', err)
+      setPreviewSlowMessage('')
       setPreviewError('AI 预览暂时失败，可手动保存')
     } finally {
+      window.clearTimeout(timeoutId)
       if (requestId === classifyRequestRef.current) {
         setClassifyLoading(false)
+      }
+      if (classifyAbortRef.current?.signal === signal) {
+        classifyAbortRef.current = null
       }
     }
   }
@@ -301,25 +515,37 @@ export default function SaveForm({
   const totalSizeMB   = files.reduce((sum, f) => sum + f.size / (1024 * 1024), 0)
   const overLimit     = totalSizeMB > TOTAL_LIMIT_MB
   const validFolderIds = new Set(folders.map(folder => folder.id))
-  const availableTags = buildCombinedTags(previewTags, userTags)
-  const finalTags = orderedTags
-  const previewReady = summary.trim().length > 0 || finalTags.length > 0 || Boolean(previewCategoryId)
-  const previewPending = tab === 'bookmark' && classifyLoading && !previewReady && !previewError
+  const canonicalPreviewTags = dedupeTags(previewTags.map(tag => resolveCanonicalTag(tag, tagLibrary)))
+  const selectedTagKeys = new Set(selectedTags.map(getTagMatchKey))
+  const dismissedSuggestionKeySet = new Set(dismissedSuggestionKeys)
+  const suggestedTags = canonicalPreviewTags.filter(tag =>
+    !selectedTagKeys.has(getTagMatchKey(tag)) &&
+    !dismissedSuggestionKeySet.has(getTagMatchKey(tag))
+  )
+  const finalTags = selectedTags
+  const previewReady = finalTags.length > 0 || Boolean(previewCategoryId)
+  const previewPending = tab === 'bookmark' && classifyLoading
   const canSave = tab === 'note'
     ? content.trim().length > 0
     : tab === 'file'
       ? files.length > 0 && !overLimit
-      : url.trim().length > 0 && (!classifyLoading || previewReady || Boolean(previewError))
+      : isValidHttpUrl(url)
   const footerMessage = tab === 'bookmark'
     ? saving
       ? '正在写入收藏与标签…'
-      : previewPending
-        ? 'AI 正在预分析链接，完成后即可保存'
+      : saveError
+        ? saveError
+      : !isEdit && previewPending && previewSlowMessage
+        ? previewSlowMessage
+      : !isEdit && previewPending
+        ? 'AI 正在预分类链接，你也可以直接保存'
+      : urlError
+          ? urlError
         : previewError
           ? 'AI 预览失败，可直接手动保存'
           : previewReady
-            ? '已生成摘要和推荐标签，确认后保存'
-            : '输入链接后会自动生成摘要和推荐标签'
+            ? '已生成推荐标签，按最终已选标签保存'
+            : '输入链接后会自动推荐标签'
     : tab === 'file'
       ? overLimit
         ? `文件总大小超过 ${TOTAL_LIMIT_MB}MB，暂时无法保存`
@@ -327,14 +553,33 @@ export default function SaveForm({
       : '记录会直接保存到当前文件夹'
   const primaryLabel = saving
     ? isEdit ? '更新中…' : '保存中…'
-    : previewPending
-      ? 'AI 分析中…'
-      : isEdit ? '更新' : '保存'
-  const primaryDisabled = !canSave || saving || overLimit || previewPending
+    : isEdit ? '更新' : '保存'
+  const primaryDisabled = !canSave || saving || overLimit
 
   function normalizeFolderId(value: string | null) {
     if (!value || value === INBOX) return null
     return validFolderIds.has(value) ? value : null
+  }
+
+  function renderFolderField() {
+    return (
+      <div>
+        <label className="text-sm font-medium block mb-1">存入文件夹</label>
+        <Select value={folderId} onValueChange={setFolderId}>
+          <SelectTrigger>
+            <SelectValue>
+              {folderId === INBOX ? '稍后整理' : folderOptions.find(o => o.value === folderId)?.name ?? ''}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={INBOX}>稍后整理</SelectItem>
+            {folderOptions.map(opt => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    )
   }
 
   async function submitSave(data: SaveData) {
@@ -348,26 +593,71 @@ export default function SaveForm({
 
   function handleUrlChange(val: string) {
     setUrl(val)
+    if (saveError) setSaveError('')
   }
 
-  function handleRemovePreviewTag(tagToRemove: ConfirmedTagDraft) {
-    setPreviewTags(prev => prev.filter(tag => !isSameTag(tag, tagToRemove)))
-  }
-
-  function handleRemoveUserTag(tagToRemove: ConfirmedTagDraft) {
-    setUserTags(prev => prev.filter(tag => !isSameTag(tag, tagToRemove)))
+  function handleRemoveSelectedTag(tagToRemove: ConfirmedTagDraft) {
+    const removedKey = getTagMatchKey(tagToRemove)
+    setSelectedTags(prev => prev.filter(tag => !isSameTag(tag, tagToRemove)))
+    if (previewTags.some(tag => getTagMatchKey(tag) === removedKey)) {
+      setDismissedSuggestionKeys(prev => prev.filter(key => key !== removedKey))
+    }
   }
 
   function handleAddUserTag() {
-    const normalized = normalizeDraftTag(draftTagName, 'content')
-    if (!normalized) return
+    const draftTag = normalizeDraftTag(draftTagName, 'content')
+    if (!draftTag) {
+      setTagInputError('')
+      return
+    }
 
-    setUserTags(prev => {
-      const withoutDuplicates = prev.filter(tag => !isSameTag(tag, normalized))
-      return [...withoutDuplicates, normalized]
+    const normalized = resolveExactCanonicalTag(draftTag, tagLibrary)
+    const duplicateTag = selectedTags.find(tag => isSameTag(tag, normalized))
+    if (duplicateTag) {
+      setTagInputError(`标签“${duplicateTag.name}”已存在`)
+      return
+    }
+
+    setTagInputError('')
+
+    setSelectedTags(prev => {
+      return [...prev, normalized]
     })
-    setPreviewTags(prev => prev.filter(tag => !isSameTag(tag, normalized)))
+    const normalizedKey = getTagMatchKey(normalized)
+    setDismissedSuggestionKeys(prev => prev.filter(key => key !== normalizedKey))
     setDraftTagName('')
+  }
+
+  function handleAcceptSuggestedTag(tag: ConfirmedTagDraft) {
+    const acceptedKey = getTagMatchKey(tag)
+    setSelectedTags(prev => dedupeTags([...prev, tag]))
+    setDismissedSuggestionKeys(prev => prev.filter(key => key !== acceptedKey))
+  }
+
+  async function handleGenerateSummary() {
+    const trimmedUrl = normalizeUrlInput(url)
+    if (!isValidHttpUrl(trimmedUrl)) {
+      setUrlError('请输入有效的 http(s) 链接')
+      return
+    }
+
+    setUrlError('')
+    setSummaryError('')
+    setSummaryLoading(true)
+    try {
+      const data = await classifyPreview({ url: trimmedUrl, title, note: '' })
+      const nextNote = data?.summary?.trim()
+      if (!nextNote) {
+        setSummaryError('暂未生成总结，你可以继续手写备注')
+        return
+      }
+      setNote(nextNote)
+    } catch (error) {
+      console.error('[PB] generate summary failed:', error)
+      setSummaryError('AI 总结暂时失败，请稍后再试')
+    } finally {
+      setSummaryLoading(false)
+    }
   }
 
   function addFiles(incoming: File[]) {
@@ -401,6 +691,7 @@ export default function SaveForm({
       title,
       folderId,
     })
+    setSaveError('')
     setSaving(true)
     try {
       if (tab === 'note') {
@@ -433,31 +724,31 @@ export default function SaveForm({
           title: title.trim() || '无标题',
           type, note: note.trim(),
           folderId,
-          summary: summary.trim() || undefined,
           categoryId: previewCategoryId,
           confidence: previewConfidence,
           // 最终保存结果以对话框中最后留下的标签为准
           tags: finalTags,
         })
       }
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : '保存失败，请稍后重试')
     } finally {
       setSaving(false)
     }
   }
 
-  useEffect(() => {
-    setOrderedTags(prev => mergeTagOrder(prev, availableTags))
-  }, [previewTags, userTags])
-
   function handleTagDragStart(index: number) {
     dragIndexRef.current = index
+    setDraggingTagIndex(index)
   }
 
   function handleTagDrop(dropIndex: number) {
     const dragIndex = dragIndexRef.current
     dragIndexRef.current = null
+    setDraggingTagIndex(null)
+    setDragOverTagIndex(null)
     if (dragIndex === null || dragIndex === dropIndex) return
-    setOrderedTags(prev => moveTag(prev, dragIndex, dropIndex))
+    setSelectedTags(prev => moveTag(prev, dragIndex, dropIndex))
   }
 
   // 两个 Fragment 子节点作为 flex 容器（父）的直接子元素
@@ -494,106 +785,188 @@ export default function SaveForm({
                 onChange={e => handleUrlChange(e.target.value)}
                 autoFocus={!isEdit && !initialUrl}
               />
+              {urlError && (
+                <p className="mt-1 text-xs text-amber-700">{urlError}</p>
+              )}
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="text-sm font-medium">标题</label>
-                {url && !title && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setFetchingTitle(true)
-                      try {
-                        const r = await fetch(`/api/fetch-title?url=${encodeURIComponent(url)}`)
-                        const data = await r.json()
-                        if (data.title) { setTitle(data.title); setTitleTouched(true) }
-                      } catch {} finally { setFetchingTitle(false) }
-                    }}
-                    disabled={fetchingTitle}
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-                  >
-                    {fetchingTitle ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
-                    自动获取标题
-                  </button>
+                {fetchingTitle && (
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    <Loader2 size={11} className="animate-spin" /> 获取中…
+                  </span>
                 )}
               </div>
               <Input
                 className="text-sm"
                 placeholder="留空则使用链接作为标题"
                 value={title}
-                onChange={e => { setTitle(e.target.value); setTitleTouched(true) }}
+                onChange={e => {
+                  setTitle(e.target.value)
+                  setTitleTouched(true)
+                  titleSourceRef.current = 'manual'
+                }}
               />
             </div>
+            {renderFolderField()}
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-sm font-medium">标签与备注</label>
-                {classifyLoading && (
-                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                    <Loader2 size={12} className="animate-spin" /> AI 分析中…
+              <div className="flex items-center justify-between mb-1 gap-2">
+                <label className="text-sm font-medium">标签</label>
+                {!isEdit && classifyLoading && (
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
+                    <Loader2 size={12} className="animate-spin" /> AI 分类中…
                   </span>
                 )}
               </div>
               <div className="rounded-lg border border-border/80 bg-muted/20 px-3 py-3 space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  {finalTags.map((tag, index) => (
-                    <div
-                      key={`${tag.type}:${tag.name}:${tag.appliedBy}`}
-                      draggable
-                      onDragStart={() => handleTagDragStart(index)}
-                      onDragOver={event => event.preventDefault()}
-                      onDrop={() => handleTagDrop(index)}
-                      onDragEnd={() => {
-                        dragIndexRef.current = null
-                      }}
-                      className="cursor-grab active:cursor-grabbing"
-                      title="拖拽调整顺序"
-                    >
-                      <TagChip
-                        tone={getTagChipTone(tag)}
-                        onRemove={tag.appliedBy === 'user' ? () => handleRemoveUserTag(tag) : () => handleRemovePreviewTag(tag)}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="w-[52%] min-w-[12rem] max-w-[22rem] shrink-0">
+                    <div className="relative flex-1">
+                      <Input
+                        className="pr-11 text-sm"
+                        placeholder="自定义标签，回车添加"
+                        value={draftTagName}
+                        onChange={e => {
+                          setDraftTagName(e.target.value)
+                          if (tagInputError) setTagInputError('')
+                        }}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            handleAddUserTag()
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddUserTag}
+                        aria-label="添加标签"
+                        className={cn(
+                          'absolute inset-y-1.5 right-2 inline-flex items-center rounded-sm px-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                          draftTagName.trim()
+                            ? 'text-foreground hover:text-primary'
+                            : 'text-muted-foreground/60 hover:text-muted-foreground'
+                        )}
                       >
-                        {tag.name}
-                      </TagChip>
+                        <Check size={14} />
+                      </button>
                     </div>
-                  ))}
+                  </div>
                 </div>
 
-                <div className="flex gap-2">
-                  <Input
-                    className="text-sm"
-                    placeholder="添加自定义标签，回车确认"
-                    value={draftTagName}
-                    onChange={e => setDraftTagName(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        handleAddUserTag()
-                      }
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddUserTag}
-                    className="shrink-0 rounded-md border border-input px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  >
-                    添加
-                  </button>
-                </div>
-
-                {previewError && (
-                  <p className="text-xs text-amber-700">{previewError}</p>
+                {tagInputError && (
+                  <p className="text-xs text-amber-700">{tagInputError}</p>
                 )}
 
+                <div className="space-y-2">
+                  {finalTags.length > 0 && (
+                    <div className="text-[11px] font-medium text-muted-foreground">已选标签</div>
+                  )}
+                  {finalTags.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {finalTags.map((tag, index) => (
+                        <div
+                          key={`${tag.type}:${tag.name}:${tag.appliedBy}`}
+                          draggable
+                          onDragStart={() => handleTagDragStart(index)}
+                          onDragOver={event => {
+                            event.preventDefault()
+                            if (draggingTagIndex !== null && draggingTagIndex !== index) {
+                              setDragOverTagIndex(index)
+                            }
+                          }}
+                          onDrop={() => handleTagDrop(index)}
+                          onDragEnd={() => {
+                            dragIndexRef.current = null
+                            setDraggingTagIndex(null)
+                            setDragOverTagIndex(null)
+                          }}
+                          className={cn(
+                            'rounded-full transition-all cursor-grab active:cursor-grabbing',
+                            draggingTagIndex === index && 'scale-[0.98] opacity-45',
+                            dragOverTagIndex === index && draggingTagIndex !== index && 'ring-2 ring-primary/35 ring-offset-2 ring-offset-background'
+                          )}
+                          title="拖拽调整顺序"
+                        >
+                          <TagChip
+                            tone={getTagChipTone(tag)}
+                            onRemove={() => handleRemoveSelectedTag(tag)}
+                            className="transition-colors hover:border-border hover:bg-muted/40"
+                          >
+                            {tag.name}
+                          </TagChip>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {suggestedTags.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="text-[11px] font-medium text-muted-foreground">AI 推荐（可选）</div>
+                      <p className="text-[11px] text-muted-foreground/70">点击加入已选</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {suggestedTags.map(tag => (
+                        <TagChip
+                          key={`suggested:${tag.type}:${tag.name}:${tag.appliedBy}`}
+                          tone={getTagChipTone(tag)}
+                          onClick={() => handleAcceptSuggestedTag(tag)}
+                          className="cursor-pointer"
+                        >
+                          {tag.name}
+                        </TagChip>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-1 gap-2">
+                <label className="text-sm font-medium">备注</label>
+                <div className="flex items-center gap-2">
+                  {note.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNote('')
+                        setSummaryError('')
+                      }}
+                      className="text-[11px] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
+                    >
+                      清空
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void handleGenerateSummary()}
+                    disabled={summaryLoading || !isValidHttpUrl(url)}
+                    className="inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
+                  >
+                    {summaryLoading && <Loader2 size={11} className="animate-spin" />}
+                    {summaryLoading ? '总结中…' : 'AI 总结'}
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {summaryError && (
+                  <p className="text-xs text-amber-700">{summaryError}</p>
+                )}
                 <Textarea
-                  placeholder="添加备注…"
+                  placeholder="添加备注，或点右上角让 AI 生成总结…"
                   value={note}
-                  onChange={e => setNote(e.target.value)}
-                  rows={2}
+                  onChange={e => {
+                    setNote(e.target.value)
+                    if (summaryError) setSummaryError('')
+                  }}
+                  rows={3}
                   className="resize-none text-sm"
                 />
               </div>
             </div>
-            {/* AI 摘要暂时隐藏，底层能力保留 */}
           </>
         )}
 
@@ -674,22 +1047,7 @@ export default function SaveForm({
         )}
 
         {/* ── 共享：存入文件夹 ── */}
-        <div>
-          <label className="text-sm font-medium block mb-1">存入文件夹</label>
-          <Select value={folderId} onValueChange={setFolderId}>
-            <SelectTrigger>
-              <SelectValue>
-                {folderId === INBOX ? '稍后整理' : folderOptions.find(o => o.value === folderId)?.name ?? ''}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={INBOX}>稍后整理</SelectItem>
-              {folderOptions.map(opt => (
-                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {tab !== 'bookmark' && renderFolderField()}
 
       </div>
 

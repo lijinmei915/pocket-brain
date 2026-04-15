@@ -1,7 +1,7 @@
 export interface ItemTag {
   id: string
   name: string
-  type: 'content' | 'status' | 'source'
+  type: 'content' | 'source' | 'format' | 'status'
   appliedBy: 'ai' | 'user'
 }
 
@@ -83,6 +83,18 @@ export async function fetchItem(id: string) {
   return data?.[0] ? itemFromDb(data[0]) : null
 }
 
+export async function fetchItemByUrl(url: string) {
+  const encodedUrl = encodeURIComponent(url)
+  let data
+  try {
+    data = await rest(`/items?url=eq.${encodedUrl}&select=*,item_tags(applied_by,tags(id,name,type))&limit=1`)
+  } catch (error) {
+    console.warn('[PB] fetchItemByUrl fallback to legacy schema:', error)
+    data = await rest(`/items?url=eq.${encodedUrl}&select=*&limit=1`)
+  }
+  return data?.[0] ? itemFromDb(data[0]) : null
+}
+
 export async function createItem(item) {
   const data = await rest('/items?select=*', {
     method: 'POST',
@@ -112,7 +124,7 @@ function normalizeTagDrafts(tags: TagDraft[]) {
   for (const tag of Array.isArray(tags) ? tags : []) {
     const name = String(tag?.name || '').replace(/^#/, '').trim()
     const type = String(tag?.type || '').trim().toLowerCase()
-    if (!name || !['content', 'status', 'source'].includes(type)) continue
+    if (!name || !['content', 'source', 'format', 'status'].includes(type)) continue
 
     const key = `${type}:${name.toLowerCase()}`
     if (seen.has(key)) continue
@@ -174,6 +186,18 @@ async function createTag(tag: TagDraft) {
 
 async function ensureTag(tag: TagDraft) {
   return (await findExistingTag(tag)) || (await createTag(tag))
+}
+
+export async function fetchUserTagLibrary() {
+  if (await tagsUseUserId()) {
+    const rows = await rest(
+      `/tags?select=id,name,type&user_id=eq.${encodeURIComponent(DEFAULT_TAG_USER_ID)}&order=name.asc`
+    )
+    return normalizeTagDrafts(Array.isArray(rows) ? rows : [])
+  }
+
+  const rows = await rest('/tags?select=id,name,type&order=name.asc')
+  return normalizeTagDrafts(Array.isArray(rows) ? rows : [])
 }
 
 export async function replaceUserTagsForItem(itemId: string, tags: TagDraft[]) {

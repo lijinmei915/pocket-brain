@@ -103,9 +103,87 @@ export function canExposeClassifierDebug() {
 }
 
 const ALLOWED_CONFIDENCE = new Set(['high', 'medium', 'low'])
-const ALLOWED_TAG_TYPES = new Set(['content', 'status', 'source'])
+const ALLOWED_TAG_TYPES = new Set(['content', 'status', 'source', 'format'])
 const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504])
 const DEFAULT_TAG_USER_ID = runtimeEnv.POCKET_BRAIN_TAG_USER_ID || '00000000-0000-0000-0000-000000000001'
+const CLASSIFIER_CACHE_TTL_MS = Number(runtimeEnv.CLASSIFIER_CACHE_TTL_MS || '60000')
+const classifierCache = new Map()
+const CANONICAL_TAG_ALIASES = {
+  content: {
+    claudecode: 'Claude',
+    claudeai: 'Claude',
+    anthropicclaude: 'Claude',
+    aicoding: 'AI编程工具',
+    ai编程: 'AI编程工具',
+    ai编程助手: 'AI编程工具',
+    ai编程工具: 'AI编程工具',
+    开发者工具: 'AI编程工具',
+    编程工具: 'AI编程工具',
+    codingassistant: 'AI编程工具',
+    aicodingtool: 'AI编程工具',
+    website: '网站',
+    webpage: '网站',
+    site: '网站',
+  },
+  source: {
+    官网: '官网',
+    官方网站: '官网',
+    officialwebsite: '官网',
+    officialsite: '官网',
+    website: '官网',
+    site: '官网',
+  },
+  format: {
+    article: '文章',
+    文章: '文章',
+    post: '帖子',
+    帖子: '帖子',
+    video: '视频',
+    视频: '视频',
+    audio: '音频',
+    音频: '音频',
+    tutorial: '教程',
+    教程: '教程',
+    tool: '工具',
+    tools: '工具',
+    工具: '工具',
+  },
+}
+
+async function getCachedValue(key, loader, ttlMs = CLASSIFIER_CACHE_TTL_MS) {
+  const now = Date.now()
+  const cached = classifierCache.get(key)
+
+  if (cached && cached.expiresAt > now) {
+    return cached.value
+  }
+
+  if (cached?.promise) {
+    return cached.promise
+  }
+
+  const promise = Promise.resolve()
+    .then(loader)
+    .then(value => {
+      classifierCache.set(key, {
+        value,
+        expiresAt: Date.now() + ttlMs,
+      })
+      return value
+    })
+    .catch(error => {
+      classifierCache.delete(key)
+      throw error
+    })
+
+  classifierCache.set(key, {
+    value: null,
+    expiresAt: now + ttlMs,
+    promise,
+  })
+
+  return promise
+}
 
 export function detectLegacyType(url = '') {
   const lower = String(url).toLowerCase()
@@ -199,8 +277,10 @@ async function supabaseRest(path, options = {}) {
 }
 
 export async function fetchCategories() {
-  const rows = await fetchSupabaseJson('/categories?select=id,name,description,sort_order&order=sort_order.asc')
-  return Array.isArray(rows) ? rows : []
+  return getCachedValue('categories', async () => {
+    const rows = await fetchSupabaseJson('/categories?select=id,name,description,sort_order&order=sort_order.asc')
+    return Array.isArray(rows) ? rows : []
+  })
 }
 
 function getTagUserId() {
@@ -213,15 +293,17 @@ function isMissingColumnError(error, column) {
 }
 
 async function tagsUseUserId() {
-  try {
-    await supabaseRest(`/tags?select=id&user_id=eq.${encodeURIComponent(getTagUserId())}&limit=1`)
-    return true
-  } catch (error) {
-    if (isMissingColumnError(error, 'user_id')) {
-      return false
+  return getCachedValue(`tags-use-user-id:${getTagUserId()}`, async () => {
+    try {
+      await supabaseRest(`/tags?select=id&user_id=eq.${encodeURIComponent(getTagUserId())}&limit=1`)
+      return true
+    } catch (error) {
+      if (isMissingColumnError(error, 'user_id')) {
+        return false
+      }
+      throw error
     }
-    throw error
-  }
+  })
 }
 
 async function findExistingTag({ name, type }) {
@@ -259,6 +341,20 @@ async function createTag({ name, type }) {
 
 async function ensureTag(tag) {
   return (await findExistingTag(tag)) || (await createTag(tag))
+}
+
+async function fetchUserTagLibrary() {
+  return getCachedValue(`user-tag-library:${getTagUserId()}`, async () => {
+    if (await tagsUseUserId()) {
+      const rows = await supabaseRest(
+        `/tags?select=name,type&user_id=eq.${encodeURIComponent(getTagUserId())}&order=name.asc&limit=200`
+      )
+      return Array.isArray(rows) ? rows : []
+    }
+
+    const rows = await supabaseRest('/tags?select=name,type&order=name.asc&limit=200')
+    return Array.isArray(rows) ? rows : []
+  })
 }
 
 async function fetchCurrentItemTagRows(itemId) {
@@ -354,7 +450,7 @@ async function fetchStoredTagsForItem(itemId) {
   return normalizeStoredTagRows(rows)
 }
 
-function buildPrompt({ url, title, note, sourceTag, categories }) {
+function buildPrompt({ url, title, note, sourceTag, categories, userTagLibrary }) {
   const categoryOptions = categories.map(category => ({
     id: category.id,
     name: category.name,
@@ -368,10 +464,16 @@ function buildPrompt({ url, title, note, sourceTag, categories }) {
     '必须遵守：',
     '1. category_id 只能从候选列表中选择一个真实 UUID，禁止自造分类名或 UUID。',
     '2. confidence 只能是 high / medium / low。',
-    '3. tags 最多 5 个，type 必须是 content。标签应是具体的主题词（如"React"、"机器学习"），不要输出来源平台名、分类名或泛化词（如"技术文章"、"新闻"）。',
-    '4. summary 用简体中文，控制在 50 字以内。摘要必须补充标题中没有的关键信息（如结论、数据、人物、事件结果），严禁复述或改写标题。如果内容信息不足，写"暂无更多信息"。',
-    '5. 如果把握不大，也要选最接近的 category_id，并把 confidence 设为 low。',
-    '6. 只返回 JSON，不要输出 Markdown，不要解释。',
+    '3. tags 最多 5 个，可使用的 type 只有 content / source / format。content 表示主题，source 表示来源，format 表示形态。其中前台主展示只保留 content 和 format；source 作为底层元数据保留，不要求必须输出。',
+    '4. content 标签数量按内容主题复杂度决定，不要求凑满；如果主题集中，只输出 1-3 个最关键标签。content 应是具体主题词（如"React""机器学习"），不要输出来源平台名、分类名或泛化词（如"技术文章""新闻"）。',
+    '5. source 只表示来源或平台，最多 1 个；如果来源不明确可以为空，不要把主题词误当作 source。source 仅在确实有帮助时输出，不要为了凑类型而强行生成。',
+    '6. format 只表示内容形态，最多 1 个；优先从"文章""视频""音频""帖子""教程""工具"这类最贴近的形态里选择，不要和 source 或 content 混用。',
+    '7. 在输出 tags 前，先对照用户已有标签库；如果已有标签中存在语义相同、近义、互相包含，或只是不同表述方式的标签，优先使用用户已有标签名作为最终输出，不再生成新的近似标签。这个规则同时适用于 content / source / format。',
+    '8. 标签之间不能语义重复、互相包含，或只是上位/近义改写。若出现冲突，优先保留最具体、最贴近页面主题、信息量最高的标签。仅当标签语义完全重复、互相包含，或只是上位/近义改写时才去重；并列细分标签（如"React""Vue"）可以同时保留。',
+    '9. 标签生成后，必须按以下顺序校验：① 数量 ≤ 5；② 只使用 content / source / format；③ content 无来源/分类/泛化词；④ source ≤ 1；⑤ format ≤ 1；⑥ 无语义重复、包含或近义冲突；校验通过后再输出。错误示例：同时输出"Claude""Claude Code"、"AI编程工具""开发者工具"、"大模型""AI工具"都属于未完成去重，必须先合并后再输出。',
+    '10. summary 用简体中文，控制在 50 字以内。摘要必须补充标题中没有的关键信息（如结论、数据、人物、事件结果），严禁复述或改写标题。如果内容信息不足，写"暂无更多信息"。',
+    '11. 如果把握不大，也要选最接近的 category_id，并把 confidence 设为 low。',
+    '12. 只返回 JSON，不要输出 Markdown，不要解释。',
     '',
     '候选分类：',
     JSON.stringify(categoryOptions, null, 2),
@@ -383,6 +485,7 @@ function buildPrompt({ url, title, note, sourceTag, categories }) {
         title: title || '',
         note: note || '',
         source_hint: sourceTag || null,
+        user_tag_library: Array.isArray(userTagLibrary) ? userTagLibrary : [],
       },
       null,
       2
@@ -435,29 +538,100 @@ function normalizeConfirmedTag(tag) {
   return { name, type }
 }
 
-function normalizeTags(tags, sourceTag) {
-  const result = []
+function normalizeTagText(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/['".,!?()[\]{}\-_/\\]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function buildTagTokens(value) {
+  const normalized = normalizeTagText(value)
+  if (!normalized) return []
+
+  const compact = normalized.replace(/\s+/g, '')
+  const singular = normalized.endsWith('s') && normalized.length > 3
+    ? normalized.slice(0, -1)
+    : normalized
+
+  return Array.from(new Set([normalized, compact, singular.replace(/\s+/g, '')].filter(Boolean)))
+}
+
+function resolveCanonicalTag(tag, userTagLibrary) {
+  const aliasMap = CANONICAL_TAG_ALIASES[tag.type] || {}
+  const sourceTokens = buildTagTokens(tag.name)
+  const aliasedName = sourceTokens
+    .map(token => aliasMap[token])
+    .find(Boolean)
+  const aliasResolvedTag = aliasedName ? { ...tag, name: aliasedName } : tag
+
+  const candidates = (Array.isArray(userTagLibrary) ? userTagLibrary : []).filter(candidate => candidate?.type === tag.type)
+  if (candidates.length === 0) return aliasResolvedTag
+
+  const canonicalSourceTokens = buildTagTokens(aliasResolvedTag.name)
+  const normalizedSourceTokens = canonicalSourceTokens.length > 0 ? canonicalSourceTokens : sourceTokens
+  if (sourceTokens.length === 0) return tag
+
+  const exactMatch = candidates.find(candidate => {
+    const candidateTokens = buildTagTokens(candidate.name)
+    return candidateTokens.some(token => normalizedSourceTokens.includes(token))
+  })
+  if (exactMatch?.name) {
+    return { ...aliasResolvedTag, name: exactMatch.name }
+  }
+
+  const inclusiveMatch = candidates.find(candidate => {
+    const candidateTokens = buildTagTokens(candidate.name)
+    return candidateTokens.some(candidateToken =>
+      normalizedSourceTokens.some(sourceToken =>
+        candidateToken.length >= 2 &&
+        sourceToken.length >= 2 &&
+        (candidateToken.includes(sourceToken) || sourceToken.includes(candidateToken))
+      )
+    )
+  })
+
+  return inclusiveMatch?.name ? { ...aliasResolvedTag, name: inclusiveMatch.name } : aliasResolvedTag
+}
+
+function normalizeTags(tags, sourceTag, userTagLibrary) {
+  const buckets = {
+    content: [],
+    source: [],
+    format: [],
+  }
   const seen = new Set()
 
   for (const tag of Array.isArray(tags) ? tags : []) {
-    const name = String(tag?.name || '').replace(/^#/, '').trim()
-    const type = String(tag?.type || '').trim().toLowerCase()
-    if (!name || !ALLOWED_TAG_TYPES.has(type)) continue
+    const normalized = normalizeConfirmedTag(tag)
+    if (!normalized) continue
 
-    const key = `${type}:${name.toLowerCase()}`
+    const canonical = resolveCanonicalTag(normalized, userTagLibrary)
+    if (!['content', 'source', 'format'].includes(canonical.type)) continue
+
+    const key = `${canonical.type}:${canonical.name.toLowerCase()}`
     if (seen.has(key)) continue
+
     seen.add(key)
-    result.push({ name, type })
+    buckets[canonical.type].push(canonical)
   }
 
   if (sourceTag) {
-    const key = `source:${sourceTag.toLowerCase()}`
+    const canonicalSourceTag = resolveCanonicalTag({ name: sourceTag, type: 'source' }, userTagLibrary)
+    const key = `source:${canonicalSourceTag.name.toLowerCase()}`
     if (!seen.has(key)) {
-      result.push({ name: sourceTag, type: 'source' })
+      buckets.source.push(canonicalSourceTag)
     }
   }
 
-  return result.slice(0, 5)
+  const contentNameSet = new Set(buckets.content.map(tag => tag.name.toLowerCase()))
+  const dedupedSource = buckets.source.filter(tag => !contentNameSet.has(tag.name.toLowerCase())).slice(0, 1)
+  const dedupedFormat = buckets.format.filter(tag => !contentNameSet.has(tag.name.toLowerCase())).slice(0, 1)
+  const dedupedContent = buckets.content.slice(0, 5 - dedupedSource.length - dedupedFormat.length)
+
+  return [...dedupedContent, ...dedupedFormat].slice(0, 5)
 }
 
 export function normalizeConfirmedClassification(input, fallback = {}) {
@@ -574,6 +748,7 @@ function sleep(ms) {
 
 export async function classifyBookmark(input, options = {}) {
   const categories = options.categories || (await fetchCategories())
+  const userTagLibrary = options.userTagLibrary || (await fetchUserTagLibrary())
   if (!categories.length) {
     throw new Error('No categories found in Supabase')
   }
@@ -586,6 +761,7 @@ export async function classifyBookmark(input, options = {}) {
     note: input.note,
     sourceTag,
     categories,
+    userTagLibrary,
   })
 
   const rawText = await callQwen(prompt)
@@ -598,7 +774,7 @@ export async function classifyBookmark(input, options = {}) {
     type: detectLegacyType(input.url),
     category_id: categoryId,
     confidence,
-    tags: normalizeTags(parsed?.tags, sourceTag),
+    tags: normalizeTags(parsed?.tags, sourceTag, userTagLibrary),
     summary: normalizeSummary(parsed?.summary, input.title),
   }
 }

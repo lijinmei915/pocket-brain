@@ -1,6 +1,7 @@
 import {
   createItem as createItemRecord,
   fetchItem,
+  fetchItemByUrl,
   type BookmarkItem,
   type ItemTag,
   replaceUserTagsForItem,
@@ -19,6 +20,16 @@ export interface ConfirmedTagDraft {
   name: string
   type: ItemTag['type']
   appliedBy: 'ai' | 'user'
+}
+
+export class DuplicateUrlError extends Error {
+  existingItemId?: string
+
+  constructor(message = '该链接已存在', existingItemId?: string) {
+    super(message)
+    this.name = 'DuplicateUrlError'
+    this.existingItemId = existingItemId
+  }
 }
 
 type ClassificationSaveFields = {
@@ -45,10 +56,43 @@ function shouldReclassify(changes: Partial<BookmarkItem>) {
   )
 }
 
-export async function classifyPreview(input: { url: string; title?: string; note?: string }) {
+function normalizeComparableUrl(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+
+  try {
+    const parsed = new URL(trimmed)
+    parsed.hash = ''
+
+    if (parsed.pathname !== '/' && parsed.pathname.endsWith('/')) {
+      parsed.pathname = parsed.pathname.replace(/\/+$/, '')
+    }
+
+    return parsed.toString()
+  } catch {
+    return trimmed
+  }
+}
+
+async function assertUrlNotDuplicated(url: string | null | undefined, currentItemId?: string) {
+  const normalizedUrl = typeof url === 'string' ? normalizeComparableUrl(url) : ''
+  if (!normalizedUrl) return
+
+  const existingItem = await fetchItemByUrl(normalizedUrl)
+  if (!existingItem?.id) return
+  if (currentItemId && existingItem.id === currentItemId) return
+
+  throw new DuplicateUrlError('该链接已存在，不能重复保存', existingItem.id)
+}
+
+export async function classifyPreview(
+  input: { url: string; title?: string; note?: string },
+  options: { signal?: AbortSignal } = {}
+) {
   try {
     const response = await fetch('/api/classify', {
       method: 'POST',
+      signal: options.signal,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -66,6 +110,9 @@ export async function classifyPreview(input: { url: string; title?: string; note
 
     return (await response.json()) as ClassificationPreview
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw error
+    }
     console.error('[PB] classify preview error:', error)
     return null
   }
@@ -195,7 +242,12 @@ function mergeClassification(item: BookmarkItem, classification: Record<string, 
 }
 
 export async function createItemWithClassification(item: Partial<BookmarkItem>) {
-  const created = await createItemRecord(item)
+  const normalizedUrl = typeof item.url === 'string' ? normalizeComparableUrl(item.url) : item.url
+  await assertUrlNotDuplicated(normalizedUrl)
+  const created = await createItemRecord({
+    ...item,
+    url: normalizedUrl,
+  })
   const hasConfirmedFields =
     item.summary !== undefined ||
     item.categoryId !== undefined ||
@@ -222,7 +274,14 @@ export async function createItemWithClassification(item: Partial<BookmarkItem>) 
 }
 
 export async function updateItemWithClassification(id: string, changes: Partial<BookmarkItem>) {
-  const updated = await updateItemRecord(id, changes)
+  const normalizedUrl = typeof changes.url === 'string' ? normalizeComparableUrl(changes.url) : changes.url
+  if (changes.url !== undefined) {
+    await assertUrlNotDuplicated(normalizedUrl, id)
+  }
+  const updated = await updateItemRecord(id, {
+    ...changes,
+    ...(changes.url !== undefined ? { url: normalizedUrl } : {}),
+  })
   const hasConfirmedFields =
     changes.summary !== undefined ||
     changes.categoryId !== undefined ||

@@ -116,7 +116,7 @@ function ItemCard({ item, folders, onDelete, onEdit, onMove, folderOptions = [] 
         </div>
       </div>
 
-      {(item.summary || displayTags.length > 0) && (
+      {(item.note || displayTags.length > 0) && (
         <div className="space-y-2">
           <div className="flex items-start justify-between gap-2">
             <div className="flex min-w-0 flex-1 flex-wrap gap-1">
@@ -132,9 +132,9 @@ function ItemCard({ item, folders, onDelete, onEdit, onMove, folderOptions = [] 
             {date && <span className="shrink-0 pt-1 text-[11px] leading-none text-muted-foreground">{date}</span>}
           </div>
 
-          {item.summary && item.summary.trim() && (
+          {item.note && item.note.trim() && (
             <p className="text-xs leading-5 text-muted-foreground line-clamp-2">
-              {item.summary}
+              {item.note}
             </p>
           )}
         </div>

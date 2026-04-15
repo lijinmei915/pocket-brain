@@ -16,9 +16,11 @@
     "48": "icon-192.png",
     "128": "icon-512.png"
   },
-  "permissions": ["activeTab", "windows"],
+  "permissions": ["activeTab", "windows", "storage"],
   "host_permissions": [
     "https://clujgrcidguwgufqekve.supabase.co/*",
+    "http://localhost:3000/*",
+    "http://127.0.0.1:3000/*",
     "http://localhost:5173/*",
     "http://127.0.0.1:5173/*",
     "https://pocket-brain-blush.vercel.app/*"

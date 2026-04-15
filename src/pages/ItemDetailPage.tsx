@@ -164,14 +164,6 @@ export default function ItemDetailPage() {
   const folder = folders.find(f => f.id === item.folderId)
   const isNote = item.type === 'note'
   const displayTags = sortDisplayTags(item.tags || [])
-  const confidenceLabel = item.confidence === 'high'
-    ? '高置信'
-    : item.confidence === 'medium'
-      ? '中置信'
-      : item.confidence === 'low'
-        ? '低置信'
-        : null
-
   return (
     <div className="min-h-screen bg-background">
       {/* Sticky top: header row + toolbar */}
@@ -298,19 +290,10 @@ export default function ItemDetailPage() {
           </a>
         )}
 
-        {!isEditing && (item.summary || confidenceLabel) && (
-          <div className="space-y-4 mb-8">
-            {item.summary && (
-              <div className="rounded-xl border border-border/80 bg-muted/25 px-4 py-3">
-                <div className="flex items-center justify-between gap-3 mb-1.5">
-                  <span className="text-xs font-medium text-foreground">AI 摘要</span>
-                  {confidenceLabel && (
-                    <span className="text-[11px] text-muted-foreground">{confidenceLabel}</span>
-                  )}
-                </div>
-                <p className="text-sm leading-6 text-muted-foreground">{item.summary}</p>
-              </div>
-            )}
+        {!isEditing && !isNote && item.note && item.note.trim() && (
+          <div className="mb-8 rounded-xl border border-border/80 bg-muted/25 px-4 py-3">
+            <div className="mb-1.5 text-xs font-medium text-foreground">备注</div>
+            <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{item.note}</p>
           </div>
         )}
 
