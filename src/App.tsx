@@ -4,6 +4,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import ItemDetailPage from '@/pages/ItemDetailPage'
 import SharePage from '@/pages/SharePage'
 import SavePage from '@/pages/SavePage'
+import DesignShowcasePage from '@/pages/DesignShowcasePage'
 import Sidebar from '@/components/layout/Sidebar'
 import ItemGrid from '@/components/patterns/ItemGrid'
 import AddItemDialog from '@/components/patterns/AddItemDialog'
@@ -207,6 +208,7 @@ export default function App() {
         <Route path="/item/:id" element={<ItemDetailPage />} />
         <Route path="/share" element={<SharePage />} />
         <Route path="/save" element={<SavePage />} />
+        <Route path="/design-showcase" element={<DesignShowcasePage />} />
       </Routes>
     </TooltipProvider>
   )

@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
 import {
-  Upload, X, Image, FileArchive, Music, Loader2, Video, Check,
+  Upload, X, Image, FileArchive, Music, Loader2, Video, Check, Plus,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TagChip, getTagChipTone } from '@/components/ui/tag-chip'
 import { cn } from '@/lib/utils'
-import { fetchItemByUrl, fetchUserTagLibrary, uploadFile } from '@/utils/supabase'
+import { fetchItemByUrl, fetchUserTagLibrary, fetchRecentlyUsedTags, uploadFile } from '@/utils/supabase'
 import { classifyPreview } from '@/utils/item-service'
 import type { ConfirmedTagDraft } from '@/utils/item-service'
 import type { BookmarkItem, ItemTag } from '@/utils/supabase'
@@ -315,6 +315,7 @@ export default function SaveForm({
     file: [],
   })
   const [tagLibrary, setTagLibrary] = useState<Array<{ name: string; type: ItemTag['type'] }>>([])
+  const [recentTags, setRecentTags] = useState<Array<{ name: string; type: ItemTag['type'] }>>([])
   const [dismissedSuggestionKeys, setDismissedSuggestionKeys] = useState<string[]>([])
   const [previewError, setPreviewError] = useState('')
   const [previewSlowMessage, setPreviewSlowMessage] = useState('')
@@ -352,6 +353,15 @@ export default function SaveForm({
       })
       .catch(error => {
         console.error('[PB] fetch tag library failed:', error)
+      })
+
+    void fetchRecentlyUsedTags(6)
+      .then(tags => {
+        if (!active) return
+        setRecentTags(tags)
+      })
+      .catch(error => {
+        console.error('[PB] fetch recent tags failed:', error)
       })
 
     return () => {
@@ -462,106 +472,37 @@ export default function SaveForm({
     }
   }, [url, tab, isEdit])
 
-  // URL / 标题 / 备注改变时，自动分类
-  useEffect(() => {
-    classifyAbortRef.current?.abort()
-
-    if (tab !== 'bookmark') return undefined
-
-    classifyRequestRef.current += 1
-    const requestId = classifyRequestRef.current
+  // 手动触发 AI 分类
+  async function handleClassifyTags() {
     const trimmedUrl = normalizeUrlInput(url)
-
-    if (!trimmedUrl) {
-      setUrlError('')
-      setClassifyLoading(false)
-      setPreviewError('')
-      setPreviewSlowMessage('')
-      setPreviewCategoryId(null)
-      setPreviewConfidence(null)
-      setPreviewTags([])
-      setDismissedSuggestionKeys([])
-      return undefined
-    }
-
     if (!isValidHttpUrl(trimmedUrl)) {
       setUrlError('请输入有效的 http(s) 链接')
-      setClassifyLoading(false)
-      setPreviewError('')
-      setPreviewSlowMessage('')
-      setPreviewCategoryId(null)
-      setPreviewConfidence(null)
-      setPreviewTags([])
-      setDismissedSuggestionKeys([])
-      return undefined
+      return
     }
+
+    classifyAbortRef.current?.abort()
+    const controller = new AbortController()
+    classifyAbortRef.current = controller
+    const { signal } = controller
 
     setUrlError('')
-
-    if (duplicateUrlError) {
-      setClassifyLoading(false)
-      setPreviewError('')
-      setPreviewSlowMessage('')
-      setPreviewCategoryId(null)
-      setPreviewConfidence(null)
-      setPreviewTags([])
-      setDismissedSuggestionKeys([])
-      return undefined
-    }
-
-    if (isEdit) {
-      setClassifyLoading(false)
-      setPreviewError('')
-      setPreviewSlowMessage('')
-      setPreviewTags([])
-      setDismissedSuggestionKeys([])
-      return undefined
-    }
-
     setPreviewError('')
     setPreviewSlowMessage('')
-    setPreviewCategoryId(null)
-    setPreviewConfidence(null)
+    setClassifyLoading(true)
     setPreviewTags([])
     setDismissedSuggestionKeys([])
 
-    const controller = new AbortController()
-    classifyAbortRef.current = controller
-    const timer = window.setTimeout(() => {
-      setClassifyLoading(true)
-      void autoClassify(requestId, trimmedUrl, title, note, controller)
-    }, 450)
-
-    return () => {
-      window.clearTimeout(timer)
-      controller.abort()
-      if (classifyAbortRef.current === controller) {
-        classifyAbortRef.current = null
-      }
-    }
-  }, [url, title, tab, duplicateUrlError])
-
-  async function autoClassify(
-    requestId: number,
-    nextUrl: string,
-    nextTitle: string,
-    nextNote: string,
-    controller: AbortController
-  ) {
-    if (!nextUrl) return
-    const { signal } = controller
     const timeoutId = window.setTimeout(() => {
-      if (requestId === classifyRequestRef.current) {
-        setPreviewSlowMessage('AI 推荐分类较慢，标签可手动添加，或可直接保存')
-      }
+      controller.abort()
+      setClassifyLoading(false)
+      setPreviewSlowMessage('AI 分类超时，可手动选择标签后保存')
     }, AUTO_CLASSIFY_TIMEOUT_MS)
 
     try {
-      const data = await classifyPreview({ url: nextUrl, title: nextTitle, note: nextNote }, { signal })
-      if (requestId !== classifyRequestRef.current) return
+      const data = await classifyPreview({ url: trimmedUrl, title, note }, { signal })
       setPreviewSlowMessage('')
       if (!data) {
-        setPreviewError('AI 预览暂时失败，可手动保存')
+        setPreviewError('AI 分类暂时失败，可手动添加标签')
         return
       }
       if (data.type && !typeTouched) setType(data.type)
@@ -575,15 +516,13 @@ export default function SaveForm({
         }))
       )
     } catch (err) {
-      if (signal.aborted || requestId !== classifyRequestRef.current) return
+      if (signal.aborted) return
       console.error('[PB] classify error:', err)
       setPreviewSlowMessage('')
-      setPreviewError('AI 预览暂时失败，可手动保存')
+      setPreviewError('AI 分类暂时失败，可手动添加标签')
     } finally {
       window.clearTimeout(timeoutId)
-      if (requestId === classifyRequestRef.current) {
-        setClassifyLoading(false)
-      }
+      setClassifyLoading(false)
       if (classifyAbortRef.current?.signal === signal) {
         classifyAbortRef.current = null
       }
@@ -631,17 +570,17 @@ export default function SaveForm({
       ? '正在写入收藏与标签…'
       : saveError
         ? saveError
-      : !isEdit && previewPending && previewSlowMessage
-        ? previewSlowMessage
       : !isEdit && previewPending
-        ? 'AI 正在预分类链接，你也可以直接保存'
+        ? 'AI 正在分类，你也可以直接保存'
+      : !isEdit && previewSlowMessage
+        ? previewSlowMessage
       : urlError
           ? urlError
         : previewError
-          ? 'AI 预览失败，可直接手动保存'
+          ? previewError
           : previewReady
-            ? '已生成推荐标签，按最终已选标签保存'
-            : '输入链接后会自动推荐标签'
+            ? '按最终已选标签保存'
+            : '可点击 AI 分类自动推荐标签，或手动添加'
     : tab === 'file'
       ? overLimit
         ? `文件总大小超过 ${TOTAL_LIMIT_MB}MB，暂时无法保存`
@@ -872,120 +811,201 @@ export default function SaveForm({
     showAiStatus?: boolean
     showSuggestions?: boolean
   }) {
+    const draft = draftTagName.trim()
+    const draftLower = draft.toLowerCase()
+    const isSearching = draftLower.length > 0
+
+    // 搜索模式：模糊匹配 tagLibrary
+    const searchTokens = isSearching ? buildTagSearchTokens(draftLower) : []
+    const searchMatches = isSearching
+      ? tagLibrary
+          .filter(lib => {
+            const libTokens = buildTagSearchTokens(lib.name)
+            return libTokens.some(lt =>
+              searchTokens.some(st => lt.includes(st) || st.includes(lt))
+            )
+          })
+          .filter(lib => !selectedTags.some(sel => isSameTag(sel, { ...lib, appliedBy: 'user' })))
+          .slice(0, 8)
+      : []
+    const hasExactMatch = isSearching && tagLibrary.some(
+      lib => normalizeTagText(lib.name) === normalizeTagText(draftLower)
+    )
+
+    // 最近使用：未输入时显示最近使用过的标签（排除已选）
+    const recentPickTags = !isSearching
+      ? recentTags
+          .filter(lib => !selectedTags.some(sel => isSameTag(sel, { ...lib, appliedBy: 'user' })))
+          .slice(0, 6)
+      : []
+
+    function handleQuickPickTag(lib: { name: string; type: ItemTag['type'] }) {
+      const tag: ConfirmedTagDraft = { name: lib.name, type: lib.type, appliedBy: 'user' }
+      updateSelectedTagsForTab(tab, prev => dedupeTags([...prev, tag]))
+      setDraftTagNameForTab(tab, '')
+    }
+
     return (
-      <div>
-        <div className="flex items-center justify-between mb-1 gap-2">
+      <div className="space-y-2">
+        {/* 第一行：标签标题 + AI 分类按钮 */}
+        <div className="flex items-center justify-between mb-1">
           <label className="text-sm font-medium">标签</label>
-          {showAiStatus && !isEdit && classifyLoading && (
-            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
-              <Loader2 size={12} className="animate-spin" /> AI 分类中…
-            </span>
+          {showAiStatus && !isEdit && (
+            <button
+              type="button"
+              onClick={() => void handleClassifyTags()}
+              disabled={classifyLoading || !isValidHttpUrl(url)}
+              className="inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
+            >
+              {classifyLoading && <Loader2 size={11} className="animate-spin" />}
+              {classifyLoading ? '分类中…' : 'AI 分类'}
+            </button>
           )}
         </div>
-        <div className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="w-[52%] min-w-[12rem] max-w-[22rem] shrink-0">
-              <div className="relative flex-1">
-                <Input
-                  className="pr-11 text-sm"
-                  placeholder="自定义标签，回车添加"
-                  value={draftTagName}
-                  onChange={e => {
-                    setDraftTagNameForTab(tab, e.target.value)
-                    if (tagInputError) setTagInputError('')
-                  }}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      handleAddUserTag()
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={handleAddUserTag}
-                  aria-label="添加标签"
-                  className={cn(
-                    'absolute inset-y-1.5 right-2 inline-flex items-center rounded-sm px-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-                    draftTagName.trim()
-                      ? 'text-foreground hover:text-primary'
-                      : 'text-muted-foreground/60 hover:text-muted-foreground'
-                  )}
+
+        {/* 分类错误/超时提示 */}
+        {(previewSlowMessage || previewError) && (
+          <p className="text-xs text-[var(--warning)]">{previewSlowMessage || previewError}</p>
+        )}
+
+        {/* 输入框 */}
+        <div className="relative">
+          <Input
+            className="pr-11 text-sm"
+            placeholder="输入标签名搜索或新建"
+            value={draftTagName}
+            onChange={e => {
+              setDraftTagNameForTab(tab, e.target.value)
+              if (tagInputError) setTagInputError('')
+            }}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                handleAddUserTag()
+              }
+            }}
+          />
+          <button
+            type="button"
+            onClick={handleAddUserTag}
+            aria-label="添加标签"
+            className={cn(
+              'absolute inset-y-1.5 right-2 inline-flex items-center rounded-sm px-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+              draftTagName.trim()
+                ? 'text-foreground hover:text-primary'
+                : 'text-muted-foreground/60 hover:text-muted-foreground'
+            )}
+          >
+            <Check size={14} />
+          </button>
+        </div>
+
+        {tagInputError && (
+          <p className="text-xs text-[var(--warning)]">{tagInputError}</p>
+        )}
+
+        {/* 已选标签 */}
+        {selectedTags.length > 0 && (
+          <div className="flex gap-1.5">
+            <span className="text-[11px] font-medium text-foreground shrink-0 leading-6">已选：</span>
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+            {selectedTags.map((tag, index) => (
+              <div
+                key={`${tag.type}:${tag.name}:${tag.appliedBy}`}
+                draggable
+                onDragStart={() => handleTagDragStart(index)}
+                onDragOver={event => {
+                  event.preventDefault()
+                  if (draggingTagIndex !== null && draggingTagIndex !== index) {
+                    setDragOverTagIndex(index)
+                  }
+                }}
+                onDrop={() => handleTagDrop(index)}
+                onDragEnd={() => {
+                  dragIndexRef.current = null
+                  setDraggingTagIndex(null)
+                  setDragOverTagIndex(null)
+                }}
+                className={cn(
+                  'rounded-full transition-all cursor-grab active:cursor-grabbing',
+                  draggingTagIndex === index && 'scale-[0.98] opacity-45',
+                  dragOverTagIndex === index && draggingTagIndex !== index && 'ring-2 ring-primary/35 ring-offset-2 ring-offset-background'
+                )}
+                title="拖拽调整顺序"
+              >
+                <TagChip
+                  tone={getTagChipTone(tag)}
+                  onRemove={() => handleRemoveSelectedTag(tag)}
+                  className="transition-colors hover:border-border hover:bg-muted/40 font-medium"
                 >
-                  <Check size={14} />
-                </button>
+                  {tag.name}
+                </TagChip>
               </div>
+            ))}
             </div>
           </div>
+        )}
 
-          {tagInputError && (
-            <p className="text-xs text-amber-700">{tagInputError}</p>
-          )}
-
-          <div className="space-y-2">
-            {selectedTags.length > 0 && (
-              <div className="text-[11px] font-medium text-muted-foreground">已选标签</div>
-            )}
-            {selectedTags.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {selectedTags.map((tag, index) => (
-                  <div
-                    key={`${tag.type}:${tag.name}:${tag.appliedBy}`}
-                    draggable
-                    onDragStart={() => handleTagDragStart(index)}
-                    onDragOver={event => {
-                      event.preventDefault()
-                      if (draggingTagIndex !== null && draggingTagIndex !== index) {
-                        setDragOverTagIndex(index)
-                      }
-                    }}
-                    onDrop={() => handleTagDrop(index)}
-                    onDragEnd={() => {
-                      dragIndexRef.current = null
-                      setDraggingTagIndex(null)
-                      setDragOverTagIndex(null)
-                    }}
-                    className={cn(
-                      'rounded-full transition-all cursor-grab active:cursor-grabbing',
-                      draggingTagIndex === index && 'scale-[0.98] opacity-45',
-                      dragOverTagIndex === index && draggingTagIndex !== index && 'ring-2 ring-primary/35 ring-offset-2 ring-offset-background'
-                    )}
-                    title="拖拽调整顺序"
-                  >
-                    <TagChip
-                      tone={getTagChipTone(tag)}
-                      onRemove={() => handleRemoveSelectedTag(tag)}
-                      className="transition-colors hover:border-border hover:bg-muted/40"
-                    >
-                      {tag.name}
-                    </TagChip>
-                  </div>
-                ))}
-              </div>
+        {/* 第三行：搜索匹配 / 最近使用 */}
+        {isSearching && (searchMatches.length > 0 || !hasExactMatch) && (
+          <div className="flex flex-wrap gap-1.5 items-center">
+            {searchMatches.map(lib => (
+              <TagChip
+                key={`match:${lib.type}:${lib.name}`}
+                tone="muted"
+                onClick={() => handleQuickPickTag(lib)}
+                className="cursor-pointer"
+              >
+                {lib.name}
+              </TagChip>
+            ))}
+            {!hasExactMatch && draft && (
+              <button
+                type="button"
+                onClick={handleAddUserTag}
+                className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-muted-foreground/30 px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              >
+                <Plus size={12} />新建 &ldquo;{draft}&rdquo;
+              </button>
             )}
           </div>
-
-          {showSuggestions && suggestedTags.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="text-[11px] font-medium text-muted-foreground">AI 推荐（可选）</div>
-                <p className="text-[11px] text-muted-foreground/70">点击加入已选</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {suggestedTags.map(tag => (
-                  <TagChip
-                    key={`suggested:${tag.type}:${tag.name}:${tag.appliedBy}`}
-                    tone={getTagChipTone(tag)}
-                    onClick={() => handleAcceptSuggestedTag(tag)}
-                    className="cursor-pointer"
-                  >
-                    {tag.name}
-                  </TagChip>
-                ))}
-              </div>
+        )}
+        {!isSearching && recentPickTags.length > 0 && (
+          <div className="flex gap-1.5">
+            <span className="text-[11px] text-muted-foreground shrink-0 leading-6">最近：</span>
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+              {recentPickTags.map(lib => (
+                <TagChip
+                  key={`recent:${lib.type}:${lib.name}`}
+                  tone="muted"
+                  onClick={() => handleQuickPickTag(lib)}
+                  className="cursor-pointer"
+                >
+                  {lib.name}
+                </TagChip>
+              ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* AI 推荐 */}
+        {showSuggestions && suggestedTags.length > 0 && (
+          <div className="flex gap-1.5">
+            <span className="text-[11px] text-muted-foreground shrink-0 leading-6">AI 推荐：</span>
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+              {suggestedTags.map(tag => (
+                <TagChip
+                  key={`suggested:${tag.type}:${tag.name}:${tag.appliedBy}`}
+                  tone={getTagChipTone(tag)}
+                  onClick={() => handleAcceptSuggestedTag(tag)}
+                  className="cursor-pointer"
+                >
+                  {tag.name}
+                </TagChip>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -1025,7 +1045,7 @@ export default function SaveForm({
                 autoFocus={!isEdit && !initialUrl}
               />
               {urlError && (
-                <p className="mt-1 text-xs text-amber-700">{urlError}</p>
+                <p className="mt-1 text-xs text-destructive">{urlError}</p>
               )}
               {!urlError && duplicateUrlError && (
                 <p className="mt-1 text-xs text-destructive">{duplicateUrlError}</p>
@@ -1084,7 +1104,7 @@ export default function SaveForm({
               </div>
               <div className="space-y-2">
                 {summaryError && (
-                  <p className="text-xs text-amber-700">{summaryError}</p>
+                  <p className="text-xs text-[var(--warning)]">{summaryError}</p>
                 )}
                 <Textarea
                   placeholder="添加备注，或点右上角让 AI 生成总结…"

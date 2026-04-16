@@ -188,6 +188,33 @@ async function ensureTag(tag: TagDraft) {
   return (await findExistingTag(tag)) || (await createTag(tag))
 }
 
+export async function fetchRecentlyUsedTags(limit = 6): Promise<TagDraft[]> {
+  try {
+    // 取最近 20 条 item 的标签，扁平化去重得到"最近使用"
+    const rows = await rest(
+      '/items?select=item_tags(tags(id,name,type))&order=created_at.desc&limit=20'
+    )
+    const seen = new Set<string>()
+    const result: TagDraft[] = []
+    for (const item of Array.isArray(rows) ? rows : []) {
+      for (const it of Array.isArray(item?.item_tags) ? item.item_tags : []) {
+        const tag = it?.tags
+        if (!tag?.name || !tag?.type) continue
+        const key = `${tag.type}:${tag.name.toLowerCase()}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        result.push({ name: tag.name, type: tag.type })
+        if (result.length >= limit) break
+      }
+      if (result.length >= limit) break
+    }
+    return result
+  } catch (error) {
+    console.warn('[PB] fetchRecentlyUsedTags failed:', error)
+    return []
+  }
+}
+
 export async function fetchUserTagLibrary() {
   if (await tagsUseUserId()) {
     const rows = await rest(

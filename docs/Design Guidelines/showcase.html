@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Design Guidelines — Pocket Brain</title>
-  <link rel="stylesheet" href="../../src/styles/tokens.css">
+  <link rel="stylesheet" href="../../src/styles/index.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     html { font-size: 16px; }
@@ -180,6 +180,55 @@
     .input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(51,51,51,0.12); }
     .input::placeholder { color: var(--text-disabled); }
     .input:disabled { opacity: 0.5; cursor: not-allowed; }
+    .example-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .example-card {
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) + 2px);
+      background: var(--bg-card);
+      padding: 14px;
+    }
+    .example-card.bad {
+      border-color: rgba(220,38,38,0.24);
+      background: rgba(220,38,38,0.04);
+    }
+    .example-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 10px;
+    }
+    .field-stack { display: flex; flex-direction: column; gap: 12px; }
+    .field-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .status-inline {
+      font-size: 11px;
+      color: var(--text-disabled);
+      white-space: nowrap;
+    }
+    .helper-text {
+      margin-top: 6px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+    .helper-text-danger { color: var(--danger); }
+    .helper-text-warning { color: var(--warning); }
+    .saveform-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+    .example-card.bad .saveform-footer {
+      border-top-color: rgba(220,38,38,0.18);
+    }
 
     /* ── Card ── */
     .cards-row { display: flex; gap: 12px; flex-wrap: wrap; }
@@ -262,8 +311,12 @@
   <!-- ── Tree Nav ── -->
   <nav class="tree-nav">
     <div class="tree-group">
+      <div class="tree-group-label">Overview</div>
+      <a class="tree-item active" onclick="showSection('overview')">全局规范 Overview</a>
+    </div>
+    <div class="tree-group">
       <div class="tree-group-label">Tokens</div>
-      <a class="tree-item active" onclick="showSection('colors')">颜色 Colors</a>
+      <a class="tree-item" onclick="showSection('colors')">颜色 Colors</a>
       <a class="tree-item" onclick="showSection('effects')">效果与圆角 Effects</a>
     </div>
     <div class="tree-group">
@@ -284,6 +337,16 @@
     </div>
     <div class="tree-group">
       <div class="tree-group-label">Pattern</div>
+      <a class="tree-item" onclick="showSection('more-button')">更多按钮 MoreButton</a>
+      <a class="tree-item" onclick="showSection('link-field')">链接字段 LinkField</a>
+      <a class="tree-item" onclick="showSection('title-field')">标题字段 TitleField</a>
+      <a class="tree-item" onclick="showSection('folder-select-field')">文件夹字段 FolderSelectField</a>
+      <a class="tree-item" onclick="showSection('note-field')">备注字段 NoteField</a>
+      <a class="tree-item" onclick="showSection('tag-field')">标签字段 TagField</a>
+      <a class="tree-item" onclick="showSection('content-type-tabs')">内容类型切换 ContentTypeTabs</a>
+      <a class="tree-item" onclick="showSection('dialog-actions')">弹窗操作 DialogActions</a>
+      <a class="tree-item" onclick="showSection('save-form')">保存表单 SaveForm</a>
+      <a class="tree-item" onclick="showSection('ai-actions')">AI 动作 AI Actions</a>
       <a class="tree-item" onclick="showSection('cards')">卡片 Card Pattern</a>
     </div>
     <div class="nav-footer">
@@ -299,11 +362,48 @@
       <p>Pocket Brain 设计系统 · 实时预览 + Token 编辑器</p>
     </div>
 
+    <!-- Overview -->
+    <section class="section active" id="overview">
+      <div class="section-head">
+        <div class="section-title">全局规范 / Overview</div>
+        <span class="doc-ref">docs/DESIGN_STANDARDS.md</span>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">这套规范怎么读</div>
+        <table class="spec-table">
+          <tr><th>先看什么</th><th>作用</th><th>对应文档</th></tr>
+          <tr><td>总规范</td><td>先建立分层、优先级和禁忌，不直接看具体组件细节</td><td><code class="inline">docs/DESIGN_STANDARDS.md</code></td></tr>
+          <tr><td>基础规范</td><td>决定 token、排版、布局常量和组件目录</td><td><code class="inline">docs/design/tokens.md</code> / <code class="inline">layout.md</code> / <code class="inline">component-index.md</code></td></tr>
+          <tr><td>组件规范</td><td>进入具体组件或 pattern 时，看对应单页说明</td><td><code class="inline">docs/design/*.md</code></td></tr>
+        </table>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">最重要的 5 条总规则</div>
+        <ul class="spec-list">
+          <li>Token 优先：颜色、圆角、阴影、层级先走 token，不在组件里硬编码视觉值。</li>
+          <li>结构先于装饰：先把层级、顺序、提示位置做对，再考虑“完整感”和装饰壳层。</li>
+          <li>Primitive 先于 Pattern：能直接用 shadcn 原语就先复用，业务语义再往上封装。</li>
+          <li>保存主流程优先：AI 分类、AI 总结、推荐标签都属于辅助，不能压过保存本身。</li>
+          <li>文档与展示页同步：命名、分层、组件目录一旦变化，<code class="inline">docs/</code> 和 <code class="inline">showcase.html</code> 同轮更新。</li>
+        </ul>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">遇到任务时怎么查</div>
+        <table class="spec-table">
+          <tr><th>要改什么</th><th>先看哪里</th></tr>
+          <tr><td>颜色、圆角、阴影</td><td><code class="inline">Tokens</code> → 颜色 / Effects</td></tr>
+          <tr><td>排版、间距、断点、容器</td><td><code class="inline">Layout</code> → Typography / Layout Constants</td></tr>
+          <tr><td>不知道该用 Primitive 还是 Pattern</td><td><code class="inline">Components</code> → 组件目录 Component Index</td></tr>
+          <tr><td>要改具体表单、标签、AI 动作</td><td>直接进入对应组件 section，再对照同名 <code class="inline">docs/design/*.md</code></td></tr>
+        </table>
+      </div>
+    </section>
+
     <!-- Colors -->
-    <section class="section active" id="colors">
+    <section class="section" id="colors">
       <div class="section-head">
         <div class="section-title">颜色 Token</div>
-        <span class="doc-ref">tokens.md</span>
+        <span class="doc-ref">docs/design/tokens.md</span>
       </div>
       <div class="preview-group">
         <div class="group-label">品牌色</div>
@@ -342,7 +442,7 @@
     <section class="section" id="typography">
       <div class="section-head">
         <div class="section-title">排版</div>
-        <span class="doc-ref">tokens.md</span>
+        <span class="doc-ref">docs/design/layout.md</span>
       </div>
       <div id="type-list"></div>
     </section>
@@ -351,7 +451,7 @@
     <section class="section" id="layout-constants">
       <div class="section-head">
         <div class="section-title">布局常量</div>
-        <span class="doc-ref">layout.md</span>
+        <span class="doc-ref">docs/design/layout.md</span>
       </div>
       <div class="preview-group">
         <div class="group-label">尺寸常量</div>
@@ -396,13 +496,60 @@
     <section class="section" id="component-index">
       <div class="section-head">
         <div class="section-title">组件目录 / Primitive × Pattern</div>
-        <span class="doc-ref">docs/design/</span>
+        <span class="doc-ref">docs/design/component-index.md</span>
       </div>
       <p class="spec-note" style="margin-bottom:16px">先看底层原语，再看 Pocket Brain 的项目封装。新增共享 UI 组件时同步更新此表，避免展示层目录和代码分层脱节。</p>
+      <div class="preview-group">
+        <div class="group-label">Primitive 组件目录</div>
+        <table class="spec-table">
+          <thead>
+            <tr>
+              <th>底层原语</th>
+              <th>项目组件</th>
+              <th>规范文件</th>
+              <th>使用位置</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>Button</code>（shadcn/ui）</td>
+              <td><code>Button</code></td>
+              <td><code>docs/design/buttons.md</code></td>
+              <td>全局操作入口，业务只做 variant / layout 扩展</td>
+            </tr>
+            <tr>
+              <td><code>Badge</code>（shadcn/ui）</td>
+              <td><code>Badge</code></td>
+              <td><code>docs/design/tag-chip.md</code></td>
+              <td>SaveForm、ItemGrid、ItemDetailPage</td>
+            </tr>
+            <tr>
+              <td><code>Tabs</code>（shadcn/ui）</td>
+              <td><code>Tabs</code></td>
+              <td><code>docs/design/tabs.md</code></td>
+              <td>GetAppDialog、多视图切换</td>
+            </tr>
+            <tr>
+              <td><code>Input</code> / <code>Textarea</code> / <code>Select</code>（shadcn/ui）</td>
+              <td>表单字段组合</td>
+              <td><code>docs/design/form-field.md</code></td>
+              <td>弹窗表单、筛选区、详情编辑区</td>
+            </tr>
+            <tr>
+              <td><code>Dialog</code>（shadcn/ui）</td>
+              <td>Dialog family</td>
+              <td><code>docs/design/dialog-shell.md</code></td>
+              <td>默认直接使用 shadcn <code>Dialog</code> / <code>DialogContent</code> / <code>DialogHeader</code> / <code>DialogFooter</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="preview-group">
+        <div class="group-label">Pattern 组件目录</div>
       <table class="spec-table">
         <thead>
           <tr>
-            <th>层级</th>
             <th>底层原语</th>
             <th>项目组件 / Pattern</th>
             <th>规范文件</th>
@@ -411,98 +558,104 @@
         </thead>
         <tbody>
           <tr>
-            <td>Primitive</td>
-            <td><code>Button</code>（shadcn/ui）</td>
-            <td><code>Button</code></td>
-            <td><code>docs/design/buttons.md</code></td>
-            <td>全局操作入口，业务只做 variant / layout 扩展</td>
+            <td><code>Input</code> + 标题 / 必填 / 错误</td>
+            <td><code>LinkField</code></td>
+            <td><code>docs/design/link-field.md</code></td>
+            <td>链接字段</td>
           </tr>
           <tr>
-            <td>Primitive</td>
-            <td><code>Badge</code>（shadcn/ui）</td>
-            <td><code>Badge</code></td>
-            <td><code>docs/design/tag-chip.md</code></td>
-            <td>SaveForm、ItemGrid、ItemDetailPage</td>
+            <td><code>Input</code> + 标题 / 辅助说明</td>
+            <td><code>TitleField</code></td>
+            <td><code>docs/design/title-field.md</code></td>
+            <td>标题字段</td>
           </tr>
           <tr>
-            <td>Primitive</td>
-            <td><code>Input</code> / <code>Textarea</code> / <code>Select</code>（shadcn/ui）</td>
-            <td>表单字段组合</td>
-            <td><code>docs/design/panels.md</code> / <code>docs/design/spacing.md</code></td>
-            <td>弹窗表单、筛选区、详情编辑区</td>
+            <td><code>Select</code> + 标题</td>
+            <td><code>FolderSelectField</code></td>
+            <td><code>docs/design/folder-select-field.md</code></td>
+            <td>文件夹字段</td>
           </tr>
           <tr>
-            <td>Primitive</td>
-            <td><code>Dialog</code>（shadcn/ui）</td>
-            <td>Dialog family</td>
-            <td>待补</td>
-            <td>默认直接使用 shadcn <code>Dialog</code> / <code>DialogContent</code> / <code>DialogHeader</code> / <code>DialogFooter</code></td>
+            <td><code>Textarea</code> + 标题右侧状态</td>
+            <td><code>NoteField</code></td>
+            <td><code>docs/design/note-field.md</code></td>
+            <td>备注字段</td>
           </tr>
           <tr>
-            <td>Pattern</td>
+            <td><code>Input</code> + <code>Badge</code> / 标签交互 / AI 状态</td>
+            <td><code>TagField</code></td>
+            <td><code>docs/design/tag-field.md</code></td>
+            <td>标签字段</td>
+          </tr>
+          <tr>
+            <td><code>Tabs</code> + 类型切换规则</td>
+            <td><code>ContentTypeTabs</code></td>
+            <td><code>docs/design/content-type-tabs.md</code></td>
+            <td>收藏 / 灵感 / 资料切换</td>
+          </tr>
+          <tr>
             <td><code>Button</code> / <code>DropdownMenu</code>（shadcn/ui）</td>
             <td><code>MoreButton</code></td>
             <td><code>docs/design/more-button.md</code></td>
             <td>ItemGrid（卡片）、Sidebar（文件夹）</td>
           </tr>
           <tr>
-            <td>Pattern</td>
             <td><code>Button</code>（shadcn/ui）</td>
             <td><code>DialogActions</code></td>
             <td><code>docs/design/dialog-actions.md</code></td>
             <td>FolderDialog、SaveForm</td>
           </tr>
           <tr>
-            <td>Pattern</td>
-            <td><code>Card</code> / <code>Button</code> / <code>Badge</code></td>
-            <td>Item 卡片模式</td>
-            <td><code>docs/design/consistency.md</code> / <code>docs/design/tags.md</code></td>
-            <td>ItemGrid、搜索结果、分类视图</td>
+            <td><code>Dialog</code> / <code>Tabs</code></td>
+            <td><code>GetAppDialog</code></td>
+            <td><code>docs/design/get-app-dialog.md</code></td>
+            <td>获取应用入口；复用外层弹窗和 tab，内容保持业务直写</td>
           </tr>
           <tr>
-            <td>Pattern</td>
-            <td><code>Sidebar</code> / <code>Sheet</code> / <code>ScrollArea</code></td>
-            <td><code>Sidebar</code></td>
-            <td>待补</td>
-            <td>桌面侧栏、移动端抽屉导航</td>
-          </tr>
-          <tr>
-            <td>Pattern</td>
-            <td><code>Dialog</code> / 表单字段 / <code>Button</code></td>
-            <td><code>AddItemDialog</code> / <code>FolderDialog</code> / <code>ConfirmDialog</code> / <code>GetAppDialog</code></td>
-            <td>待补</td>
-            <td>添加、重命名、确认、获取应用；默认遵循 shadcn Dialog 结构</td>
-          </tr>
-          <tr>
-            <td>Pattern</td>
-            <td><code>Card</code> / <code>Badge</code> / <code>MoreButton</code></td>
-            <td><code>ItemGrid</code></td>
-            <td>待补</td>
-            <td>首页内容网格、分类结果、搜索结果</td>
-          </tr>
-          <tr>
-            <td>Pattern</td>
-            <td><code>DialogFooter</code> / 表单字段 / 标签组合</td>
+            <td><code>Input</code> / <code>Textarea</code> / <code>Badge</code> / <code>DialogFooter</code></td>
             <td><code>SaveForm</code></td>
-            <td>待补</td>
+            <td><code>docs/design/save-form.md</code></td>
             <td>保存页、采集弹窗复用内容体</td>
           </tr>
           <tr>
-            <td>Pattern</td>
+            <td>轻操作按钮 / 局部状态文案 / 标签推荐</td>
+            <td>AI Actions</td>
+            <td><code>docs/design/ai-actions.md</code></td>
+            <td>AI 分类、AI 总结、超时与失败降级</td>
+          </tr>
+          <tr>
+            <td><code>Card</code> / <code>Button</code> / <code>Badge</code></td>
+            <td>Item 卡片模式</td>
+            <td><code>docs/design/card-pattern.md</code></td>
+            <td>ItemGrid、搜索结果、分类视图</td>
+          </tr>
+          <tr>
+            <td><code>Sidebar</code> / <code>Sheet</code> / <code>ScrollArea</code></td>
+            <td><code>Sidebar</code></td>
+            <td><code>docs/design/sidebar.md</code></td>
+            <td>桌面侧栏、移动端抽屉导航</td>
+          </tr>
+          <tr>
+            <td><code>Dialog</code> / 表单字段 / <code>Button</code></td>
+            <td><code>AddItemDialog</code> / <code>FolderDialog</code> / <code>ConfirmDialog</code> / <code>GetAppDialog</code></td>
+            <td><code>docs/design/dialog-family.md</code></td>
+            <td>添加、重命名、确认、获取应用；默认遵循 shadcn Dialog 结构</td>
+          </tr>
+          <tr>
             <td>floating toolbar / <code>Button</code></td>
             <td><code>EditorBubbleMenu</code></td>
-            <td>待补</td>
+            <td><code>docs/design/editor-bubble-menu.md</code></td>
             <td>详情页富文本编辑工具栏</td>
           </tr>
           <tr>
-            <td>Pattern</td>
             <td>设计 token 编辑与状态面板</td>
             <td><code>DesignPanel</code></td>
-            <td>待补</td>
+            <td><code>docs/design/design-panel.md</code></td>
             <td>设计调试开关、变量编辑、元素预览</td>
           </tr>
         </tbody>
       </table>
+      </div>
       <div class="spec-block" data-spec-id="component-layer-rules">
         <p class="spec-note"><strong>维护规则</strong>：Primitive 层优先复用 shadcn，不再维护第二套基础组件体系；Pattern 层只描述 Pocket Brain 自己的布局、组合和交互节奏。</p>
         <p class="spec-note">新增共享组件时，同时更新这张表和对应 <code>docs/design/*.md</code> 规范文件；如果它依赖 shadcn 原语，必须在表里写清楚“基于谁封装”。</p>
@@ -513,9 +666,8 @@
       <div class="spec-block" data-spec-id="component-index-todo">
         <p class="spec-note"><strong>待办</strong>：以下项目已在代码中存在，但还未全部进入左侧导航或完成独立规范文档。</p>
         <ul class="spec-list">
-          <li><code class="inline">MoreButton</code>、<code class="inline">DialogActions</code>：已有规范文档，但尚未在左侧导航单独展示</li>
-          <li><code class="inline">FormDialog</code>、<code class="inline">Sidebar</code>：已进入组件总表，待补独立规范文件</li>
-          <li><code class="inline">ItemGrid</code>、<code class="inline">SaveForm</code>、<code class="inline">EditorBubbleMenu</code>、<code class="inline">DesignPanel</code>：待决定是否升级为正式 Pattern 规范</li>
+          <li><code class="inline">Sidebar</code> 与弹窗家族已补独立规范文件；后续以 React 版真实映射为主。</li>
+          <li><code class="inline">EditorBubbleMenu</code> 与 <code class="inline">DesignPanel</code> 已补正式规范；React 版继续承担真实映射。</li>
           <li>弹窗家族默认直接使用 shadcn <code class="inline">Dialog</code>；<code class="inline">DialogShell</code> 降级为历史兼容封装，后续评估是否保留</li>
         </ul>
       </div>
@@ -646,6 +798,284 @@
       </div>
     </section>
 
+    <section class="section" id="more-button">
+      <div class="section-head">
+        <div class="section-title">Pattern / MoreButton</div>
+        <span class="doc-ref">docs/design/more-button.md</span>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">代码映射</div>
+        <table class="spec-table">
+          <tr><th>真实组件</th><th>当前代码</th><th>使用位置</th></tr>
+          <tr><td><code>MoreButton</code></td><td><code>p-0.5 rounded text-muted-foreground hover:bg-muted hover:text-foreground</code></td><td>ItemGrid 卡片、Sidebar 文件夹行</td></tr>
+          <tr><td><code>hideUntilHover=false</code></td><td>始终可见</td><td>卡片右上角菜单触发器</td></tr>
+          <tr><td><code>hideUntilHover=true</code></td><td><code>opacity-0 group-hover:opacity-100</code></td><td>Sidebar 文件夹 hover 后显示</td></tr>
+        </table>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">真实使用场景</div>
+        <div class="example-grid">
+          <div class="example-card">
+            <div class="example-title">ItemGrid 卡片场景</div>
+            <div class="group relative flex flex-col bg-card border border-border rounded-lg p-3 hover:border-primary/40 hover:shadow-sm transition-all gap-2 cursor-pointer" style="box-shadow:var(--card-shadow)">
+              <div class="flex items-start justify-between gap-2">
+                <div class="text-sm font-medium leading-snug line-clamp-1">文章标题示例</div>
+                <button
+                  type="button"
+                  class="p-0.5 rounded text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 shrink-0"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="helper-text">这里直接对齐真实卡片结构和真实按钮类名，对应 <code class="inline">&lt;MoreButton className="shrink-0" /&gt;</code>。</div>
+          </div>
+          <div class="example-card">
+            <div class="example-title">Sidebar 文件夹场景</div>
+            <div class="group flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm hover:bg-muted text-foreground border border-border">
+              <span class="flex-1 truncate">项目文件夹</span>
+              <span class="text-xs text-muted-foreground">12</span>
+              <button
+                type="button"
+                class="p-0.5 rounded text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100 data-[state=open]:bg-muted data-[state=open]:text-foreground transition-opacity"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+              </button>
+            </div>
+            <div class="helper-text">这里直接复用了 Sidebar 行的 `group + opacity-0 group-hover:opacity-100` 逻辑，和真实组件一致。</div>
+          </div>
+        </div>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">映射结论</div>
+        <ul class="spec-list">
+          <li>这是稳定项目组件，不是展示层临时拼出来的按钮样式</li>
+          <li>showcase 里的 MoreButton 预览必须始终对齐 `src/components/ui/MoreButton.tsx` 的真实交互语义</li>
+          <li>如果卡片或侧边栏未来改了 MoreButton 的显隐规则，这里和规范文档要同步更新</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section" id="link-field">
+      <div class="section-head">
+        <div class="section-title">Pattern / LinkField</div>
+        <span class="doc-ref">docs/design/link-field.md</span>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">字段说明</div>
+        <div class="spec-block" style="margin-top:0;padding-top:0;border-top:none">
+          <p class="spec-note">底层是 shadcn <code class="inline">Input</code>，但 <code class="inline">链接 *</code>、重复校验和错误提示位置已经属于字段级 Pattern。</p>
+        </div>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">字段预览</div>
+        <div class="example-card">
+          <div class="field-head">
+            <label class="text-sm font-medium">链接 *</label>
+          </div>
+          <input class="input" placeholder="https://..." />
+          <div class="helper-text helper-text-danger">该链接已存在，不能重复保存</div>
+        </div>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">结论</div>
+        <ul class="spec-list">
+          <li>字段标题、必填和错误提示位置属于 Pattern</li>
+          <li>重复链接提示必须贴着字段本体，不回退到底部统一说明区</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section" id="title-field">
+      <div class="section-head">
+        <div class="section-title">Pattern / TitleField</div>
+        <span class="doc-ref">docs/design/title-field.md</span>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">字段说明</div>
+        <div class="spec-block" style="margin-top:0;padding-top:0;border-top:none">
+          <p class="spec-note">底层仍然是 shadcn <code class="inline">Input</code>，但“留空回退到链接标题”是 Pocket Brain 的字段规则。</p>
+        </div>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">字段预览</div>
+        <div class="example-card">
+          <div class="field-head">
+            <label class="text-sm font-medium">标题</label>
+          </div>
+          <input class="input" placeholder="留空则使用链接作为标题" />
+          <div class="helper-text">留空时自动回退到链接标题</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="folder-select-field">
+      <div class="section-head">
+        <div class="section-title">Pattern / FolderSelectField</div>
+        <span class="doc-ref">docs/design/folder-select-field.md</span>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">字段说明</div>
+        <div class="spec-block" style="margin-top:0;padding-top:0;border-top:none">
+          <p class="spec-note">底层是 shadcn <code class="inline">Select</code>，字段标题和表单中的节奏属于 Pattern；它只负责保存位置，不承担 AI 逻辑。</p>
+        </div>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">字段预览</div>
+        <div class="example-card">
+          <div class="field-head">
+            <label class="text-sm font-medium">存入文件夹</label>
+          </div>
+          <button class="btn btn-outline" style="justify-content:space-between;min-width:130px">
+            稍后整理
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="note-field">
+      <div class="section-head">
+        <div class="section-title">Pattern / NoteField</div>
+        <span class="doc-ref">docs/design/note-field.md</span>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">字段说明</div>
+        <div class="spec-block" style="margin-top:0;padding-top:0;border-top:none">
+          <p class="spec-note">底层是 shadcn <code class="inline">Textarea</code>，但 <code class="inline">备注</code> 和右侧 <code class="inline">AI 总结</code> 的关系属于字段级 Pattern。</p>
+        </div>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">字段预览</div>
+        <div class="example-card">
+          <div class="field-head">
+            <label class="text-sm font-medium">备注</label>
+            <span class="status-inline">AI 总结</span>
+          </div>
+          <textarea class="input" style="min-height:112px;padding-top:10px;padding-bottom:10px" placeholder="添加备注，或点右上角让 AI 生成总结…"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="tag-field">
+      <div class="section-head">
+        <div class="section-title">Pattern / TagField</div>
+        <span class="doc-ref">docs/design/tag-field.md</span>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">字段说明</div>
+        <div class="spec-block" style="margin-top:0;padding-top:0;border-top:none">
+          <p class="spec-note">底层依赖 shadcn <code class="inline">Input</code> 与 <code class="inline">TagChip / Badge</code>，但 <code class="inline">标签</code> 标题、<code class="inline">AI 分类</code>、已选 / 最近 / AI 推荐这整套属于字段级 Pattern。</p>
+        </div>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">字段预览</div>
+        <div class="example-card">
+          <div class="field-head">
+            <label class="text-sm font-medium">标签</label>
+            <span class="status-inline">AI 分类</span>
+          </div>
+          <input class="input" placeholder="输入标签名搜索或新建" />
+          <div class="chips-row" style="margin-top:12px">
+            <span class="helper-text" style="min-width:28px">已选：</span>
+            <span class="chip chip-article">时政新闻</span>
+            <span class="chip chip-video">文章</span>
+          </div>
+          <div class="chips-row" style="margin-top:8px">
+            <span class="helper-text" style="min-width:28px">最近：</span>
+            <span class="chip">网站</span>
+            <span class="chip">Claude</span>
+          </div>
+          <div class="chips-row" style="margin-top:8px">
+            <span class="helper-text" style="min-width:42px">AI 推荐：</span>
+            <span class="chip chip-article">新闻</span>
+            <span class="chip chip-article">时政</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="content-type-tabs">
+      <div class="section-head">
+        <div class="section-title">Pattern / ContentTypeTabs</div>
+        <span class="doc-ref">docs/design/content-type-tabs.md</span>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">字段说明</div>
+        <div class="spec-block" style="margin-top:0;padding-top:0;border-top:none">
+          <p class="spec-note">底层可复用 shadcn <code class="inline">Tabs</code>，但 <code class="inline">收藏 / 灵感 / 资料</code> 的三态切换、等宽分布和内容区联动属于 Pattern。</p>
+        </div>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">切换预览</div>
+        <div class="example-card">
+          <div class="tabs tabs-sample" style="display:flex;gap:4px;background:var(--bg-secondary);padding:4px;border-radius:12px">
+            <button class="tab-btn active" style="flex:1">收藏</button>
+            <button class="tab-btn" style="flex:1">灵感</button>
+            <button class="tab-btn" style="flex:1">资料</button>
+          </div>
+          <div class="helper-text" style="margin-top:12px">收藏：链接 → 标题 → 文件夹 → 标签 → 备注</div>
+          <div class="helper-text">灵感：主输入区 → 标签 → 文件夹</div>
+          <div class="helper-text">资料：文件区 → 标签 → 文件夹</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="dialog-actions">
+      <div class="section-head">
+        <div class="section-title">Pattern / DialogActions</div>
+        <span class="doc-ref">docs/design/dialog-actions.md</span>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">代码映射</div>
+        <table class="spec-table">
+          <tr><th>真实组件</th><th>当前代码</th><th>说明</th></tr>
+          <tr><td><code>DialogActions</code></td><td>实际直接返回 <code>DialogFooter</code></td><td>兼容旧调用名，本质上是 Dialog footer 的项目别名</td></tr>
+          <tr><td>当前来源</td><td><code>src/components/ui/DialogActions.tsx</code></td><td>内部直接复用 <code>DialogShell</code> 导出的 <code>DialogFooter</code></td></tr>
+          <tr><td>真实使用</td><td>AddItemDialog / SaveForm footer 区</td><td>操作按钮靠右排列，左侧保留说明文案位</td></tr>
+        </table>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">真实使用场景</div>
+        <div class="example-card">
+          <div class="example-title">AddItemDialog / SaveForm footer 映射</div>
+          <div class="border border-border rounded-[min(var(--radius-md),12px)] bg-card overflow-hidden">
+            <div class="px-4 pt-3 pb-5">
+              <div class="group-label" style="margin-bottom:8px">弹窗内容区</div>
+              <div class="helper-text">这里是表单本体或确认说明，footer 不应该混进内容区。</div>
+            </div>
+            <div class="shrink-0 border-t bg-muted/40 px-4 py-3 flex items-center justify-between gap-3">
+              <div class="min-w-0 flex-1 helper-text">保存相关提示放左侧，按钮组在右侧。</div>
+              <div class="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  data-slot="button"
+                  data-variant="outline"
+                  data-size="default"
+                  class="group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50 h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2"
+                >取消</button>
+                <button
+                  type="button"
+                  data-slot="button"
+                  data-variant="default"
+                  data-size="default"
+                  class="group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-primary text-primary-foreground hover:bg-primary/85 [a]:hover:bg-primary/80 h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2"
+                >保存</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">映射结论</div>
+        <ul class="spec-list">
+          <li>`DialogActions` 不是另一套弹窗系统，而是 footer 区的兼容入口</li>
+          <li>以后看见右侧按钮组 + 左侧说明位，优先联想到 Dialog footer，而不是自己新包一层按钮条</li>
+          <li>如果未来完全迁到直接使用 <code class="inline">DialogFooter</code>，这里也要同步说明“兼容层已退役”</li>
+        </ul>
+      </div>
+    </section>
+
     <!-- Badges -->
     <section class="section" id="badges">
       <div class="section-head">
@@ -680,7 +1110,7 @@
     <section class="section" id="forms">
       <div class="section-head">
         <div class="section-title">Primitive / 表单元素</div>
-        <span class="doc-ref">components/index.md</span>
+        <span class="doc-ref">docs/design/form-field.md</span>
       </div>
       <div class="form-row">
         <div>
@@ -712,11 +1142,130 @@
       </div>
     </section>
 
+    <section class="section" id="save-form">
+      <div class="section-head">
+        <div class="section-title">Pattern / SaveForm</div>
+        <span class="doc-ref">docs/design/save-form.md</span>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">标准样例 vs 常见反例</div>
+        <div class="example-grid">
+          <div class="example-card">
+            <div class="example-title">标准样例</div>
+            <div class="field-stack">
+              <div>
+                <div class="group-label">链接</div>
+                <input class="input" type="text" value="https://pocketbrain.app/article" />
+              </div>
+              <div>
+                <div class="field-head">
+                  <div class="group-label" style="margin-bottom:0">标签</div>
+                  <div class="status-inline">AI 分类中…</div>
+                </div>
+                <input class="input" type="text" placeholder="自定义标签，回车添加" />
+                <div class="helper-text">已选标签紧跟输入框下方，AI 推荐放在已选下面。</div>
+                <div class="badge-row" style="margin-top:8px">
+                  <span class="badge" style="border:1px solid var(--border); background:var(--bg-card); color:var(--text-primary)">时政新闻</span>
+                  <span class="badge" style="border:1px solid var(--border); background:var(--bg-card); color:var(--text-primary)">文章</span>
+                </div>
+                <div class="field-head" style="margin-top:10px">
+                  <div class="group-label" style="margin-bottom:0">AI 推荐（可选）</div>
+                  <div class="status-inline">点击加入已选</div>
+                </div>
+                <div class="badge-row">
+                  <span class="badge" style="border:1px solid var(--border); background:var(--bg-secondary); color:var(--text-primary)">新闻</span>
+                  <span class="badge" style="border:1px solid var(--border); background:var(--bg-secondary); color:var(--text-primary)">时事</span>
+                </div>
+              </div>
+              <div>
+                <div class="field-head">
+                  <div class="group-label" style="margin-bottom:0">备注</div>
+                  <div class="status-inline">AI 总结</div>
+                </div>
+                <textarea class="input" rows="3" style="resize:none" placeholder="添加备注，或点右上角让 AI 生成总结…"></textarea>
+              </div>
+            </div>
+            <div class="saveform-footer">
+              <div class="helper-text">输入链接后会自动推荐标签</div>
+              <div class="btn-row">
+                <button class="btn btn-outline btn-sm">取消</button>
+                <button class="btn btn-default btn-sm">保存</button>
+              </div>
+            </div>
+          </div>
+          <div class="example-card bad">
+            <div class="example-title">常见反例</div>
+            <div class="field-stack">
+              <div>
+                <div class="group-label">标签与备注</div>
+                <div style="border:1px solid var(--border); border-radius:12px; padding:12px">
+                  <div class="status-inline" style="margin-bottom:8px">AI 分类中…</div>
+                  <input class="input" type="text" placeholder="自定义标签，回车添加" />
+                </div>
+                <div class="helper-text-warning">错误：标签区多套一层壳，AI 状态也挂错层级。</div>
+              </div>
+              <div>
+                <div class="group-label">底部统一说明</div>
+                <div class="helper-text-danger">该链接已存在，不能重复保存</div>
+                <div class="helper-text">错误：重复链接提示放到底部，用户不容易定位到 URL 字段。</div>
+              </div>
+            </div>
+            <div class="saveform-footer">
+              <div class="helper-text">错误信息和字段脱节，AI 也抢了主流程位置。</div>
+              <div class="btn-row">
+                <button class="btn btn-outline btn-sm">取消</button>
+                <button class="btn btn-default btn-sm">保存</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">结构顺序</div>
+        <ul class="spec-list" data-spec-id="save-form-structure">
+          <li>收藏：链接 → 标题 → 文件夹 → 标签 → 备注</li>
+          <li>灵感 / 资料：主输入区 → 标签 → 文件夹</li>
+          <li>标签区默认直接展示，不额外套大壳</li>
+        </ul>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">标签与 AI</div>
+        <ul class="spec-list" data-spec-id="save-form-tags">
+          <li><code class="inline">AI 分类中…</code> 放标签标题右侧</li>
+          <li>AI 推荐只进可选区，不自动并入已选</li>
+          <li>重复链接时，URL 下方报错并同步停止标题抓取和 AI 分类</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section" id="ai-actions">
+      <div class="section-head">
+        <div class="section-title">Pattern / AI Actions</div>
+        <span class="doc-ref">docs/design/ai-actions.md</span>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">位置规则</div>
+        <ul class="spec-list" data-spec-id="ai-actions-placement">
+          <li>AI 局部状态挂在对应字段标题右侧</li>
+          <li>AI 超时 / 失败文案只放局部，不做全页广播</li>
+          <li>AI 总结与 AI 分类都属于辅助信息，不压过保存主流程</li>
+        </ul>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">语义规则</div>
+        <ul class="spec-list" data-spec-id="ai-actions-rules">
+          <li>保存优先，AI 次之</li>
+          <li>AI 失败后必须保留手动入口</li>
+          <li>文案短、弱、明确，不写技术细节</li>
+        </ul>
+      </div>
+    </section>
+
     <!-- Cards -->
     <section class="section" id="cards">
       <div class="section-head">
         <div class="section-title">Pattern / 卡片</div>
-        <span class="doc-ref">components/index.md</span>
+        <span class="doc-ref">docs/design/card-pattern.md</span>
       </div>
       <div class="cards-row" id="card-list"></div>
     </section>
@@ -725,7 +1274,7 @@
     <section class="section" id="effects">
       <div class="section-head">
         <div class="section-title">效果与圆角 Token</div>
-        <span class="doc-ref">tokens.md</span>
+        <span class="doc-ref">docs/design/tokens.md</span>
       </div>
       <div class="preview-group">
         <div class="group-label">阴影</div>
