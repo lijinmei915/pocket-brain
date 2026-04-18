@@ -105,7 +105,7 @@ export function canExposeClassifierDebug() {
 const ALLOWED_CONFIDENCE = new Set(['high', 'medium', 'low'])
 const ALLOWED_TAG_TYPES = new Set(['content', 'status', 'source', 'format'])
 const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504])
-const DEFAULT_TAG_USER_ID = runtimeEnv.POCKET_BRAIN_TAG_USER_ID || '00000000-0000-0000-0000-000000000001'
+const DEFAULT_TAG_USER_ID = '00000000-0000-0000-0000-000000000001'
 const CLASSIFIER_CACHE_TTL_MS = Number(runtimeEnv.CLASSIFIER_CACHE_TTL_MS || '60000')
 const classifierCache = new Map()
 const CANONICAL_TAG_ALIASES = {
@@ -283,8 +283,8 @@ export async function fetchCategories() {
   })
 }
 
-function getTagUserId() {
-  return runtimeEnv.POCKET_BRAIN_TAG_USER_ID || DEFAULT_TAG_USER_ID
+function getTagUserId(userId) {
+  return userId || runtimeEnv.POCKET_BRAIN_TAG_USER_ID || DEFAULT_TAG_USER_ID
 }
 
 function isMissingColumnError(error, column) {
@@ -292,10 +292,10 @@ function isMissingColumnError(error, column) {
   return message.includes(`column ${column}`) || message.includes(`Could not find the '${column}' column`)
 }
 
-async function tagsUseUserId() {
-  return getCachedValue(`tags-use-user-id:${getTagUserId()}`, async () => {
+async function tagsUseUserId(userId) {
+  return getCachedValue(`tags-use-user-id:${getTagUserId(userId)}`, async () => {
     try {
-      await supabaseRest(`/tags?select=id&user_id=eq.${encodeURIComponent(getTagUserId())}&limit=1`)
+      await supabaseRest(`/tags?select=id&user_id=eq.${encodeURIComponent(getTagUserId(userId))}&limit=1`)
       return true
     } catch (error) {
       if (isMissingColumnError(error, 'user_id')) {
@@ -306,13 +306,13 @@ async function tagsUseUserId() {
   })
 }
 
-async function findExistingTag({ name, type }) {
+async function findExistingTag({ name, type }, userId) {
   const encodedName = encodeURIComponent(name)
   const encodedType = encodeURIComponent(type)
 
-  if (await tagsUseUserId()) {
+  if (await tagsUseUserId(userId)) {
     const rows = await supabaseRest(
-      `/tags?select=id,name,type&user_id=eq.${encodeURIComponent(getTagUserId())}&name=eq.${encodedName}&type=eq.${encodedType}&limit=1`
+      `/tags?select=id,name,type&user_id=eq.${encodeURIComponent(getTagUserId(userId))}&name=eq.${encodedName}&type=eq.${encodedType}&limit=1`
     )
     if (Array.isArray(rows) && rows[0]) {
       return rows[0]
@@ -323,11 +323,11 @@ async function findExistingTag({ name, type }) {
   return Array.isArray(rows) && rows[0] ? rows[0] : null
 }
 
-async function createTag({ name, type }) {
+async function createTag({ name, type }, userId) {
   const body = { name, type }
 
-  if (await tagsUseUserId()) {
-    body.user_id = getTagUserId()
+  if (await tagsUseUserId(userId)) {
+    body.user_id = getTagUserId(userId)
   }
 
   const rows = await supabaseRest('/tags?select=id,name,type', {
@@ -339,15 +339,15 @@ async function createTag({ name, type }) {
   return Array.isArray(rows) && rows[0] ? rows[0] : null
 }
 
-async function ensureTag(tag) {
-  return (await findExistingTag(tag)) || (await createTag(tag))
+async function ensureTag(tag, userId) {
+  return (await findExistingTag(tag, userId)) || (await createTag(tag, userId))
 }
 
-async function fetchUserTagLibrary() {
-  return getCachedValue(`user-tag-library:${getTagUserId()}`, async () => {
-    if (await tagsUseUserId()) {
+async function fetchUserTagLibrary(userId) {
+  return getCachedValue(`user-tag-library:${getTagUserId(userId)}`, async () => {
+    if (await tagsUseUserId(userId)) {
       const rows = await supabaseRest(
-        `/tags?select=name,type&user_id=eq.${encodeURIComponent(getTagUserId())}&order=name.asc&limit=200`
+        `/tags?select=name,type&user_id=eq.${encodeURIComponent(getTagUserId(userId))}&order=name.asc&limit=200`
       )
       return Array.isArray(rows) ? rows : []
     }
@@ -748,7 +748,7 @@ function sleep(ms) {
 
 export async function classifyBookmark(input, options = {}) {
   const categories = options.categories || (await fetchCategories())
-  const userTagLibrary = options.userTagLibrary || (await fetchUserTagLibrary())
+  const userTagLibrary = options.userTagLibrary || (await fetchUserTagLibrary(options.userId))
   if (!categories.length) {
     throw new Error('No categories found in Supabase')
   }
@@ -779,7 +779,19 @@ export async function classifyBookmark(input, options = {}) {
   }
 }
 
+async function assertOwnedItem(itemId, userId) {
+  if (!userId) return
+
+  const rows = await supabaseRest(
+    `/items?id=eq.${encodeURIComponent(itemId)}&user_id=eq.${encodeURIComponent(userId)}&select=id&limit=1`
+  )
+  if (!Array.isArray(rows) || !rows[0]?.id) {
+    throw new Error('Item does not belong to current user')
+  }
+}
+
 export async function applyClassificationToItem(itemId, classification, options = {}) {
+  await assertOwnedItem(itemId, options.userId)
   const currentRows = await fetchCurrentItemTagRows(itemId)
   const suppressedTagIds = await fetchSuppressedTagIds(itemId)
   const replaceUserTags = options.replaceUserTags === true
@@ -803,7 +815,7 @@ export async function applyClassificationToItem(itemId, classification, options 
   const desiredUserTagIds = new Set()
 
   for (const tag of Array.isArray(classification?.tags) ? classification.tags : []) {
-    const ensured = await ensureTag(tag)
+    const ensured = await ensureTag(tag, options.userId)
     if (!ensured?.id) continue
     if (suppressedTagIds.has(ensured.id)) continue
     desiredAiTagIds.add(ensured.id)
@@ -811,7 +823,7 @@ export async function applyClassificationToItem(itemId, classification, options 
   }
 
   for (const tag of desiredUserTags) {
-    const ensured = await ensureTag(tag)
+    const ensured = await ensureTag(tag, options.userId)
     if (!ensured?.id) continue
     desiredUserTagIds.add(ensured.id)
     await upsertUserItemTag(itemId, ensured.id)

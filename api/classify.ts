@@ -18,6 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const title = typeof payload.title === 'string' ? payload.title : ''
   const note = typeof payload.note === 'string' ? payload.note : ''
   const itemId = typeof payload.itemId === 'string' ? payload.itemId : ''
+  const userId = typeof payload.userId === 'string' ? payload.userId : ''
   const apply = payload.apply === true || payload.apply === 'true' || payload.apply === '1'
   const debug = (payload.debug === true || payload.debug === 'true' || payload.debug === '1') && canExposeClassifierDebug()
   const confirmed = payload.confirmed && typeof payload.confirmed === 'object' ? payload.confirmed : null
@@ -42,9 +43,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? normalizeConfirmedClassification(confirmed, {
           summary: title,
         })
-      : await classifyBookmark({ url, title, note })
+      : await classifyBookmark({ url, title, note }, { userId })
     const finalResult = apply
       ? await applyClassificationToItem(itemId, result, {
+          userId,
           userTags: result.userTags,
           replaceUserTags: confirmed !== null,
           recordRemovedAiSuppressions: confirmed !== null,

@@ -26,6 +26,22 @@ export function sortDisplayTags(tags = []) {
   return [...tags]
 }
 
+export function getDisplayTags(tags = [], limit?: number) {
+  const finalTags = Array.isArray(tags) ? [...tags] : []
+  const visibleTags = typeof limit === 'number' ? finalTags.slice(0, limit) : finalTags
+
+  if (visibleTags.length > 0) return visibleTags
+
+  return [
+    {
+      id: 'fallback-other',
+      name: '其他',
+      type: 'content',
+      appliedBy: 'ai',
+    },
+  ]
+}
+
 interface TagChipProps {
   children: React.ReactNode
   // tone is semantic only; visual style still follows the same Badge baseline.
