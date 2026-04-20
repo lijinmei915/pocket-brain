@@ -5,7 +5,7 @@ import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Inbox, BookOpen, Search, FolderOpen, Folder,
-  Pencil, Trash2, FolderPlus, X, Download, LogOut
+  Pencil, Trash2, FolderPlus, X, Download
 } from 'lucide-react'
 import { MoreButton } from '@/components/ui/MoreButton'
 import { Logo } from '@/components/ui/Logo'
@@ -76,7 +76,7 @@ function FolderItem({ folder, folders, items, selected, depth, onSelect, onRenam
   )
 }
 
-export default function Sidebar({ folders, items, selected, onSelect, onCreateFolder, onRenameFolder, onDeleteFolder, search, onSearch, onAdd, mobileOpen, onMobileClose, currentUserEmail, onSignOut }) {
+export default function Sidebar({ folders, items, selected, onSelect, onCreateFolder, onRenameFolder, onDeleteFolder, search, onSearch, onAdd, mobileOpen, onMobileClose }) {
   // Dialog states
   const [folderDialogOpen, setFolderDialogOpen] = useState(false)
   const [folderDialogMode, setFolderDialogMode] = useState('create')
@@ -198,19 +198,6 @@ export default function Sidebar({ folders, items, selected, onSelect, onCreateFo
       </ScrollArea>
 
       <div className="px-4 py-3 border-t">
-        {currentUserEmail && (
-          <p className="mb-2 truncate text-xs text-muted-foreground" title={currentUserEmail}>
-            {currentUserEmail}
-          </p>
-        )}
-        {onSignOut && (
-          <button
-            onClick={onSignOut}
-            className="mb-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <LogOut size={11} />退出登录
-          </button>
-        )}
         <button
           onClick={() => setGetAppOpen(true)}
           className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"

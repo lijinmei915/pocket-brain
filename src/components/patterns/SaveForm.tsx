@@ -865,9 +865,7 @@ export default function SaveForm({
 
         {/* 分类错误/超时提示 */}
         {(previewSlowMessage || previewError) && (
-          <p className={cn('text-xs', previewSlowMessage ? 'text-[var(--warning)]' : 'text-destructive')}>
-            {previewSlowMessage || previewError}
-          </p>
+          <p className="text-xs text-[var(--warning)]">{previewSlowMessage || previewError}</p>
         )}
 
         {/* 输入框 */}
@@ -903,7 +901,7 @@ export default function SaveForm({
         </div>
 
         {tagInputError && (
-          <p className="text-xs text-destructive">{tagInputError}</p>
+          <p className="text-xs text-[var(--warning)]">{tagInputError}</p>
         )}
 
         {/* 已选标签 */}
@@ -1106,7 +1104,7 @@ export default function SaveForm({
               </div>
               <div className="space-y-2">
                 {summaryError && (
-                  <p className="text-xs text-destructive">{summaryError}</p>
+                  <p className="text-xs text-[var(--warning)]">{summaryError}</p>
                 )}
                 <Textarea
                   placeholder="添加备注，或点右上角让 AI 生成总结…"

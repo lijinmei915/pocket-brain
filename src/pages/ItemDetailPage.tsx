@@ -7,18 +7,19 @@ import { TextStyle, Color, FontSize, BackgroundColor } from '@tiptap/extension-t
 import Underline from '@tiptap/extension-underline'
 import {
   ArrowLeft, ExternalLink, Pencil, Trash2, Download,
-  FolderOpen, Check,
+  FolderOpen,
 } from 'lucide-react'
 import { deleteFile } from '@/utils/supabase'
 import EditorBubbleMenu from '@/components/patterns/EditorBubbleMenu'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { TagChip, sortDisplayTags, getDisplayTags } from '@/components/ui/tag-chip'
+import { ITEM_TYPE_LABELS, TagChip, sortDisplayTags } from '@/components/ui/tag-chip'
 import { Skeleton } from '@/components/ui/skeleton'
-import { fetchItem, fetchFolders, deleteItem, fetchUserTagLibrary, type ItemTag } from '@/utils/supabase'
+import { fetchItem, fetchFolders, deleteItem } from '@/utils/supabase'
 import { updateItemWithClassification } from '@/utils/item-service'
 import ConfirmDialog from '@/components/patterns/ConfirmDialog'
-import { cn } from '@/lib/utils'
+
+const BOOKMARK_TYPES = ['article', 'video', 'audio', 'tweet', 'other']
 
 function getFavicon(url) {
   try {
@@ -33,60 +34,6 @@ function toEditorContent(text: string) {
   return text.split('\n\n').map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('')
 }
 
-function isSameTag(a: Pick<ItemTag, 'name' | 'type'>, b: Pick<ItemTag, 'name' | 'type'>) {
-  return a.type === b.type && a.name.trim().toLowerCase() === b.name.trim().toLowerCase()
-}
-
-function normalizeTagText(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/['".,!?()[\]{}\-_/\\]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-function buildTagSearchTokens(value: string) {
-  const normalized = normalizeTagText(value)
-  if (!normalized) return []
-
-  const compact = normalized.replace(/\s+/g, '')
-  const singular = normalized.endsWith('s') && normalized.length > 3
-    ? normalized.slice(0, -1)
-    : normalized
-
-  return Array.from(new Set([normalized, compact, singular.replace(/\s+/g, '')].filter(Boolean)))
-}
-
-function resolveExactCanonicalTag(
-  tag: Pick<ItemTag, 'name' | 'type'>,
-  tagLibrary: Array<{ name: string; type: ItemTag['type'] }>
-) {
-  const candidates = tagLibrary.filter(candidate => candidate.type === tag.type)
-  if (candidates.length === 0) return tag
-
-  const sourceTokens = buildTagSearchTokens(tag.name)
-  if (sourceTokens.length === 0) return tag
-
-  const exactMatch = candidates.find(candidate => {
-    const candidateTokens = buildTagSearchTokens(candidate.name)
-    return candidateTokens.some(token => sourceTokens.includes(token))
-  })
-
-  return exactMatch ? { ...tag, name: exactMatch.name } : tag
-}
-
-function makeUserTag(name: string, type: ItemTag['type'] = 'content'): ItemTag | null {
-  const nextName = String(name || '').replace(/^#/, '').trim()
-  if (!nextName) return null
-  return {
-    id: `draft-${type}-${nextName.toLowerCase()}`,
-    name: nextName,
-    type,
-    appliedBy: 'user',
-  }
-}
-
 export default function ItemDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -96,10 +43,7 @@ export default function ItemDetailPage() {
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState('')
   const [editUrl, setEditUrl] = useState('')
-  const [editTags, setEditTags] = useState<ItemTag[]>([])
-  const [tagDraftName, setTagDraftName] = useState('')
-  const [tagInputError, setTagInputError] = useState('')
-  const [tagLibrary, setTagLibrary] = useState<Array<{ name: string; type: ItemTag['type'] }>>([])
+  const [editType, setEditType] = useState('article')
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -139,15 +83,7 @@ export default function ItemDetailPage() {
   function startEdit() {
     setEditTitle(item.title || '')
     setEditUrl(item.url || '')
-    setEditTags(Array.isArray(item.tags) ? item.tags.filter(Boolean) : [])
-    setTagDraftName('')
-    setTagInputError('')
-    void fetchUserTagLibrary()
-      .then(tags => setTagLibrary(tags))
-      .catch(error => {
-        console.error('[PB] fetch tag library failed:', error)
-        setTagLibrary([])
-      })
+    setEditType(item.type || 'article')
     if (item.type === 'note') {
       editor?.commands.setContent(toEditorContent(item.note || ''))
       editor?.setEditable(true)
@@ -160,8 +96,6 @@ export default function ItemDetailPage() {
       editor?.commands.setContent(toEditorContent(item.note || ''))
       editor?.setEditable(false)
     }
-    setTagDraftName('')
-    setTagInputError('')
     setIsEditing(false)
   }
 
@@ -174,9 +108,8 @@ export default function ItemDetailPage() {
       const updated = await updateItemWithClassification(item.id, {
         title: editTitle.trim() || (isNote ? text.slice(0, 20).trim() || '无标题' : '无标题'),
         url: isNote ? null : (editUrl.trim() || null),
-        type: item.type,
+        type: isNote ? 'note' : editType,
         note: html,
-        tags: editTags,
       })
       setItem(updated)
       if (isNote) editor?.setEditable(false)
@@ -230,43 +163,7 @@ export default function ItemDetailPage() {
     : ''
   const folder = folders.find(f => f.id === item.folderId)
   const isNote = item.type === 'note'
-  const displayTags = sortDisplayTags(getDisplayTags(item.tags || []))
-  const draftLower = tagDraftName.trim().toLowerCase()
-  const isSearchingTags = draftLower.length > 0
-  const searchTokens = isSearchingTags ? buildTagSearchTokens(draftLower) : []
-  const searchMatches = isSearchingTags
-    ? tagLibrary
-        .filter(lib => {
-          const libTokens = buildTagSearchTokens(lib.name)
-          return libTokens.some(lt => searchTokens.some(st => lt.includes(st) || st.includes(lt)))
-        })
-        .filter(lib => !editTags.some(tag => isSameTag(tag, lib)))
-        .slice(0, 8)
-    : []
-  const canCreateTag = Boolean(tagDraftName.trim()) && !searchMatches.some(match => normalizeTagText(match.name) === normalizeTagText(tagDraftName))
-
-  function handleAddTag(nameOverride?: string, typeOverride: ItemTag['type'] = 'content') {
-    const nextTag = makeUserTag(nameOverride ?? tagDraftName, typeOverride)
-    if (!nextTag) {
-      setTagInputError('')
-      return
-    }
-
-    const normalized = resolveExactCanonicalTag(nextTag, tagLibrary)
-    const duplicateTag = editTags.find(tag => isSameTag(tag, normalized))
-    if (duplicateTag) {
-      setTagInputError(`标签“${duplicateTag.name}”已存在`)
-      return
-    }
-
-    setTagInputError('')
-    setEditTags(prev => [...prev, { ...normalized, appliedBy: 'user', id: normalized.id || `${normalized.type}-${normalized.name}` }])
-    setTagDraftName('')
-  }
-
-  function handleRemoveTag(tagToRemove: ItemTag) {
-    setEditTags(prev => prev.filter(tag => !isSameTag(tag, tagToRemove)))
-  }
+  const displayTags = sortDisplayTags(item.tags || [])
   return (
     <div className="min-h-screen bg-background">
       {/* Sticky top: header row + toolbar */}
@@ -333,18 +230,17 @@ export default function ItemDetailPage() {
         )}
 
         <div className="space-y-3 mb-6">
-          {!isEditing && (
-            <div className="flex flex-wrap gap-2">
-              {displayTags.map(tag => (
-                <TagChip
-                  key={`${tag.id}-${tag.appliedBy}`}
-                  tone={tag.appliedBy === 'user' ? 'user' : tag.type === 'source' ? 'source' : 'ai'}
-                >
-                  {tag.name}
-                </TagChip>
-              ))}
-            </div>
-          )}
+          <div className="flex flex-wrap gap-2">
+            <TagChip tone="type">{ITEM_TYPE_LABELS[item.type] || ITEM_TYPE_LABELS.other}</TagChip>
+            {displayTags.map(tag => (
+              <TagChip
+                key={`${tag.id}-${tag.appliedBy}`}
+                tone={tag.appliedBy === 'user' ? 'user' : tag.type === 'source' ? 'source' : 'ai'}
+              >
+                {tag.name}
+              </TagChip>
+            ))}
+          </div>
           {(date || folder) && (
             <div className="flex items-center gap-2.5 flex-wrap text-xs text-muted-foreground">
               {date && <span>{date}</span>}
@@ -359,94 +255,19 @@ export default function ItemDetailPage() {
 
         {/* URL fields — bookmark */}
         {isEditing && !isNote && (
-          <div className="mb-6">
+          <div className="space-y-3 mb-6">
             <Input className="text-sm" value={editUrl} onChange={e => setEditUrl(e.target.value)} placeholder="https://..." />
-          </div>
-        )}
-
-        {isEditing && (
-          <div className="mb-6 space-y-2">
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-sm font-medium">标签</label>
+            <div className="flex flex-wrap gap-2">
+              {BOOKMARK_TYPES.map(option => (
+                <TagChip
+                  key={option}
+                  tone={editType === option ? 'type' : 'muted'}
+                  onClick={() => setEditType(option)}
+                >
+                  {ITEM_TYPE_LABELS[option]}
+                </TagChip>
+              ))}
             </div>
-
-            <div className="relative">
-              <Input
-                className="pr-11 text-sm"
-                placeholder="输入标签名搜索或新建"
-                value={tagDraftName}
-                onChange={e => {
-                  setTagDraftName(e.target.value)
-                  if (tagInputError) setTagInputError('')
-                }}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    handleAddTag()
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => handleAddTag()}
-                aria-label="添加标签"
-                className={cn(
-                  'absolute inset-y-1.5 right-2 inline-flex items-center rounded-sm px-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-                  tagDraftName.trim()
-                    ? 'text-foreground hover:text-primary'
-                    : 'text-muted-foreground/60 hover:text-muted-foreground'
-                )}
-              >
-                <Check size={14} />
-              </button>
-            </div>
-
-            {tagInputError && <p className="text-xs text-destructive">{tagInputError}</p>}
-
-            {editTags.length > 0 && (
-              <div className="flex gap-1.5">
-                <span className="text-[11px] font-medium text-foreground shrink-0 leading-6">已选：</span>
-                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                  {editTags.map(tag => (
-                    <TagChip
-                      key={`${tag.id}-${tag.appliedBy}`}
-                      tone={tag.appliedBy === 'user' ? 'user' : tag.type === 'source' ? 'source' : 'ai'}
-                      onRemove={() => handleRemoveTag(tag)}
-                    >
-                      {tag.name}
-                    </TagChip>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {isSearchingTags && searchMatches.length > 0 && (
-              <div className="flex gap-1.5">
-                <span className="text-[11px] text-muted-foreground shrink-0 leading-6">匹配：</span>
-                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                  {searchMatches.map(tag => (
-                    <TagChip
-                      key={`${tag.type}-${tag.name}`}
-                      tone="muted"
-                      onClick={() => handleAddTag(tag.name, tag.type)}
-                    >
-                      {tag.name}
-                    </TagChip>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {isSearchingTags && canCreateTag && (
-              <div className="flex gap-1.5">
-                <span className="text-[11px] text-muted-foreground shrink-0 leading-6">新建：</span>
-                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                  <TagChip tone="muted" onClick={() => handleAddTag()}>
-                    {`新建“${tagDraftName.trim()}”`}
-                  </TagChip>
-                </div>
-              </div>
-            )}
           </div>
         )}
 

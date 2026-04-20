@@ -1,19 +1,16 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { Loader2 } from 'lucide-react'
+import { Routes, Route } from 'react-router-dom'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import ItemDetailPage from '@/pages/ItemDetailPage'
 import SharePage from '@/pages/SharePage'
 import SavePage from '@/pages/SavePage'
 import DesignShowcasePage from '@/pages/DesignShowcasePage'
-import LoginPage from '@/pages/LoginPage'
 import Sidebar from '@/components/layout/Sidebar'
 import ItemGrid from '@/components/patterns/ItemGrid'
 import AddItemDialog from '@/components/patterns/AddItemDialog'
 import DesignPanel from '@/components/patterns/DesignPanel'
 import { fetchItems, fetchFolders, deleteItem, updateItem, createFolder, renameFolder, deleteFolder } from '@/utils/supabase'
 import { createItemWithClassification, updateItemWithClassification } from '@/utils/item-service'
-import { useAuth } from '@/hooks/use-auth'
 
 function guessType(url) {
   const u = (url || '').toLowerCase()
@@ -24,7 +21,6 @@ function guessType(url) {
 }
 
 export default function App() {
-  const { user, loading: authLoading, signOut } = useAuth()
   const [items, setItems] = useState([])
   const [folders, setFolders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -38,15 +34,6 @@ export default function App() {
   const editItem = dialogItem && dialogItem.id ? dialogItem : null
 
   useEffect(() => {
-    if (authLoading) return
-    if (!user) {
-      setItems([])
-      setFolders([])
-      setLoading(false)
-      return
-    }
-
-    setLoading(true)
     Promise.all([fetchItems(), fetchFolders()])
       .then(([fetchedItems, fetchedFolders]) => {
         setItems(fetchedItems)
@@ -56,11 +43,10 @@ export default function App() {
         console.error('[PB] load error:', err)
       })
       .finally(() => setLoading(false))
-  }, [authLoading, user?.id])
+  }, [])
 
   // Chrome extension autosave via URL params
   useEffect(() => {
-    if (!user) return
     const params = new URLSearchParams(window.location.search)
     if (params.get('autosave') === '1') {
       const url = params.get('url') || ''
@@ -75,14 +61,7 @@ export default function App() {
         window.history.replaceState({}, '', window.location.pathname)
       }
     }
-  }, [user?.id])
-
-  const handleSignOut = useCallback(async () => {
-    const { error } = await signOut()
-    if (error) {
-      console.error('[PB] sign out error:', error)
-    }
-  }, [signOut])
+  }, [])
 
   const openAdd = useCallback(() => setDialogItem({}), [])
   const openEdit = useCallback((item) => setDialogItem(item), [])
@@ -193,8 +172,6 @@ export default function App() {
           search={search}
           onSearch={setSearch}
           onAdd={openAdd}
-          currentUserEmail={user?.email ?? ''}
-          onSignOut={handleSignOut}
           mobileOpen={mobileMenuOpen}
           onMobileClose={() => setMobileMenuOpen(false)}
         />
@@ -227,33 +204,12 @@ export default function App() {
   return (
     <TooltipProvider>
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/" element={<RequireAuth loading={authLoading} user={user}>{mainLayout}</RequireAuth>} />
-        <Route path="/item/:id" element={<RequireAuth loading={authLoading} user={user}><ItemDetailPage /></RequireAuth>} />
-        <Route path="/share" element={<RequireAuth loading={authLoading} user={user}><SharePage /></RequireAuth>} />
-        <Route path="/save" element={<RequireAuth loading={authLoading} user={user}><SavePage /></RequireAuth>} />
+        <Route path="/" element={mainLayout} />
+        <Route path="/item/:id" element={<ItemDetailPage />} />
+        <Route path="/share" element={<SharePage />} />
+        <Route path="/save" element={<SavePage />} />
         <Route path="/design-showcase" element={<DesignShowcasePage />} />
       </Routes>
     </TooltipProvider>
   )
-}
-
-function RequireAuth({ children, loading, user }) {
-  const location = useLocation()
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center gap-2 bg-background text-sm text-muted-foreground">
-        <Loader2 size={16} className="animate-spin" />
-        正在检查登录状态…
-      </div>
-    )
-  }
-
-  if (!user) {
-    const redirect = `${location.pathname}${location.search}${location.hash}`
-    return <Navigate to={`/login?redirect=${encodeURIComponent(redirect)}`} replace />
-  }
-
-  return children
 }
