@@ -1,3 +1,5 @@
+import { getAccessToken, getCurrentUserId } from '@/utils/auth'
+
 export interface ItemTag {
   id: string
   name: string
@@ -32,17 +34,26 @@ type RestOptions = Omit<RequestInit, 'headers'> & { headers?: Record<string, str
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY
 
-const HEADERS = {
-  apikey: SUPABASE_KEY,
-  Authorization: 'Bearer ' + SUPABASE_KEY,
-  'Content-Type': 'application/json',
-}
 const DEFAULT_TAG_USER_ID = '00000000-0000-0000-0000-000000000001'
+
+async function getTagOwnerId() {
+  return (await getCurrentUserId()) || DEFAULT_TAG_USER_ID
+}
+
+async function getHeaders(extraHeaders: Record<string, string> = {}) {
+  const accessToken = await getAccessToken()
+  return {
+    apikey: SUPABASE_KEY,
+    Authorization: 'Bearer ' + (accessToken || SUPABASE_KEY),
+    'Content-Type': 'application/json',
+    ...extraHeaders,
+  }
+}
 
 async function rest(path: string, options: RestOptions = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
     ...options,
-    headers: { ...HEADERS, ...options.headers },
+    headers: await getHeaders(options.headers),
   })
   if (!res.ok) {
     const msg = await res.text()
@@ -141,8 +152,9 @@ function isMissingColumnError(error: unknown, column: string) {
 }
 
 async function tagsUseUserId() {
+  const userId = await getTagOwnerId()
   try {
-    await rest(`/tags?select=id&user_id=eq.${encodeURIComponent(DEFAULT_TAG_USER_ID)}&limit=1`)
+    await rest(`/tags?select=id&user_id=eq.${encodeURIComponent(userId)}&limit=1`)
     return true
   } catch (error) {
     if (isMissingColumnError(error, 'user_id')) return false
@@ -153,10 +165,11 @@ async function tagsUseUserId() {
 async function findExistingTag(tag: TagDraft) {
   const encodedName = encodeURIComponent(tag.name)
   const encodedType = encodeURIComponent(tag.type)
+  const userId = await getTagOwnerId()
 
   if (await tagsUseUserId()) {
     const rows = await rest(
-      `/tags?select=id,name,type&user_id=eq.${encodeURIComponent(DEFAULT_TAG_USER_ID)}&name=eq.${encodedName}&type=eq.${encodedType}&limit=1`
+      `/tags?select=id,name,type&user_id=eq.${encodeURIComponent(userId)}&name=eq.${encodedName}&type=eq.${encodedType}&limit=1`
     )
     if (Array.isArray(rows) && rows[0]) return rows[0]
   }
@@ -166,13 +179,14 @@ async function findExistingTag(tag: TagDraft) {
 }
 
 async function createTag(tag: TagDraft) {
+  const userId = await getTagOwnerId()
   const body: Record<string, unknown> = {
     name: tag.name,
     type: tag.type,
   }
 
   if (await tagsUseUserId()) {
-    body.user_id = DEFAULT_TAG_USER_ID
+    body.user_id = userId
   }
 
   const rows = await rest('/tags?select=id,name,type', {
@@ -216,9 +230,10 @@ export async function fetchRecentlyUsedTags(limit = 6): Promise<TagDraft[]> {
 }
 
 export async function fetchUserTagLibrary() {
+  const userId = await getTagOwnerId()
   if (await tagsUseUserId()) {
     const rows = await rest(
-      `/tags?select=id,name,type&user_id=eq.${encodeURIComponent(DEFAULT_TAG_USER_ID)}&order=name.asc`
+      `/tags?select=id,name,type&user_id=eq.${encodeURIComponent(userId)}&order=name.asc`
     )
     return normalizeTagDrafts(Array.isArray(rows) ? rows : [])
   }
@@ -302,15 +317,14 @@ const BUCKET = 'attachments'
 
 export async function uploadFile(file: File): Promise<string> {
   const ext = file.name.split('.').pop() ?? 'bin'
-  const path = `${crypto.randomUUID()}.${ext}`
+  const currentUserId = await getCurrentUserId()
+  const path = `${currentUserId || 'anonymous'}/${crypto.randomUUID()}.${ext}`
   const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
     method: 'POST',
-    headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: 'Bearer ' + SUPABASE_KEY,
+    headers: await getHeaders({
       'Content-Type': file.type || 'application/octet-stream',
       'x-upsert': 'false',
-    },
+    }),
     body: file,
   })
   if (!res.ok) throw new Error(`Upload failed: ${await res.text()}`)
@@ -325,10 +339,7 @@ export async function deleteFile(publicUrl: string): Promise<void> {
   const path = publicUrl.slice(idx + marker.length)
   await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
     method: 'DELETE',
-    headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: 'Bearer ' + SUPABASE_KEY,
-    },
+    headers: await getHeaders(),
   })
 }
 
@@ -384,7 +395,7 @@ function normalizeItemTags(itemTagRows: unknown, legacyTags: unknown): ItemTag[]
       const id = typeof rawTag?.id === 'string' ? rawTag.id : null
       const name = String(rawTag?.name || '').trim()
       const type = String(rawTag?.type || '').trim().toLowerCase()
-      if (!id || !name || !['content', 'status', 'source'].includes(type)) continue
+      if (!id || !name || !['content', 'status', 'source', 'format'].includes(type)) continue
 
       const appliedBy = relation?.applied_by === 'user' ? 'user' : 'ai'
       const key = `${id}:${appliedBy}`

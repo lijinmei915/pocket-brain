@@ -7,6 +7,7 @@ import {
   replaceUserTagsForItem,
   updateItem as updateItemRecord,
 } from '@/utils/supabase'
+import { getCurrentUserId } from '@/utils/auth'
 
 interface ClassificationPreview {
   type?: string
@@ -90,6 +91,7 @@ export async function classifyPreview(
   options: { signal?: AbortSignal } = {}
 ) {
   try {
+    const userId = await getCurrentUserId()
     const response = await fetch('/api/classify', {
       method: 'POST',
       signal: options.signal,
@@ -100,6 +102,7 @@ export async function classifyPreview(
         url: input.url,
         title: input.title || '',
         note: input.note || '',
+        userId,
       }),
     })
 
@@ -169,6 +172,7 @@ async function applyClassification(item: BookmarkItem) {
 }
 
 async function applyConfirmedClassification(item: BookmarkItem, confirmed: ClassificationSaveFields) {
+  const userId = await getCurrentUserId()
   const confirmedPayload = {
     category_id: confirmed.categoryId ?? null,
     confidence: confirmed.confidence ?? null,
@@ -193,6 +197,7 @@ async function applyConfirmedClassification(item: BookmarkItem, confirmed: Class
         url: item.url,
         title: item.title,
         note: item.note,
+        userId,
         apply: true,
         confirmed: confirmedPayload,
       }),
@@ -218,7 +223,10 @@ function normalizeServiceTags(tags: unknown): ItemTag[] {
       if (!tag || typeof tag !== 'object') return null
       const id = typeof tag.id === 'string' ? tag.id : null
       const name = typeof tag.name === 'string' ? tag.name : ''
-      const type = tag.type === 'content' || tag.type === 'status' || tag.type === 'source' ? tag.type : null
+      const type =
+        tag.type === 'content' || tag.type === 'status' || tag.type === 'source' || tag.type === 'format'
+          ? tag.type
+          : null
       const appliedBy = tag.appliedBy === 'user' ? 'user' : 'ai'
       if (!id || !name || !type) return null
       return { id, name, type, appliedBy }

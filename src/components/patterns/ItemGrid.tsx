@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Plus, ExternalLink, Trash2, Pencil, Inbox, Menu, FolderInput } from 'lucide-react'
 import { MoreButton } from '@/components/ui/MoreButton'
-import { TagChip, sortDisplayTags } from '@/components/ui/tag-chip'
+import { TagChip, sortDisplayTags, getDisplayTags } from '@/components/ui/tag-chip'
 import ConfirmDialog from '@/components/patterns/ConfirmDialog'
 
 function getFavicon(url) {
@@ -30,25 +30,10 @@ function getDomain(url) {
   catch { return url }
 }
 
-function getVisibleTags(tags = []) {
-  const sorted = [...tags].slice(0, 3)
-
-  if (sorted.length > 0) return sorted
-
-  return [
-    {
-      id: 'fallback-other',
-      name: '其他',
-      type: 'content',
-      appliedBy: 'ai',
-    },
-  ]
-}
-
 function ItemCard({ item, folders, onDelete, onEdit, onMove, folderOptions = [] }) {
   const navigate = useNavigate()
   const favicon = getFavicon(item.url)
-  const visibleTags = getVisibleTags(item.tags || [])
+  const visibleTags = getDisplayTags(item.tags || [], 3)
   const displayTags = sortDisplayTags(visibleTags)
 
   const date = item.createdAt ? new Date(item.createdAt).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : ''
