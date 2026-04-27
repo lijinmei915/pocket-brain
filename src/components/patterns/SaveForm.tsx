@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import {
   Upload, X, Image, FileArchive, Music, Loader2, Video, Check, Plus,
 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -1208,7 +1209,7 @@ export default function SaveForm({
 
       </div>
 
-      {renderFooter?.({
+      {renderFooter ? renderFooter({
         canSave,
         saving,
         overLimit,
@@ -1219,7 +1220,19 @@ export default function SaveForm({
         primaryDisabled,
         onSave: handleSave,
         onCancel,
-      })}
+      }) : (
+        <div className="shrink-0 border-t bg-muted/40 px-4 py-3 flex items-center justify-between gap-3">
+          <p className={cn('min-w-0 flex-1 text-xs', footerTone === 'error' ? 'text-destructive' : 'text-muted-foreground')} aria-live="polite">
+            {footerMessage}
+          </p>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={onCancel}>取消</Button>
+            <Button type="button" size="sm" disabled={primaryDisabled} onClick={handleSave}>
+              {saving ? <><Loader2 size={14} className="mr-1.5 animate-spin" />{primaryLabel}</> : primaryLabel}
+            </Button>
+          </div>
+        </div>
+      )}
     </>
   )
 }

@@ -7,23 +7,40 @@ import { TextStyle, Color, FontSize, BackgroundColor } from '@tiptap/extension-t
 import Underline from '@tiptap/extension-underline'
 import {
   ArrowLeft, ExternalLink, Pencil, Trash2, Download,
-  FolderOpen, Check,
+  FileText, Video, Headphones, MessageCircle, BookOpen, PenLine, FolderOpen, Paperclip,
 } from 'lucide-react'
 import { deleteFile } from '@/utils/supabase'
 import EditorBubbleMenu from '@/components/patterns/EditorBubbleMenu'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { TagChip, sortDisplayTags, getDisplayTags } from '@/components/ui/tag-chip'
+import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { fetchItem, fetchFolders, deleteItem, fetchUserTagLibrary, type ItemTag } from '@/utils/supabase'
-import { updateItemWithClassification } from '@/utils/item-service'
+import { fetchItem, fetchFolders, updateItem, deleteItem } from '@/utils/supabase'
 import ConfirmDialog from '@/components/patterns/ConfirmDialog'
 import { cn } from '@/lib/utils'
+
+const TYPE_CONFIG = {
+  article: { icon: FileText,      label: '文章',   cls: 'component-tag-article' },
+  video:   { icon: Video,         label: '视频',   cls: 'component-tag-video'   },
+  audio:   { icon: Headphones,    label: '音频',   cls: 'component-tag-audio'   },
+  tweet:   { icon: MessageCircle, label: '帖子',   cls: 'component-tag-tweet'   },
+  other:   { icon: BookOpen,      label: '其他',   cls: 'component-tag-other'   },
+  note:    { icon: PenLine,       label: '随手记', cls: 'component-tag-note'    },
+  file:    { icon: Paperclip,     label: '文件',   cls: 'component-tag-other'   },
+}
+
+const BOOKMARK_TYPES = [
+  { value: 'article', label: '文章',   icon: FileText,      cls: 'component-tag-article' },
+  { value: 'video',   label: '视频',   icon: Video,         cls: 'component-tag-video'   },
+  { value: 'audio',   label: '音频',   icon: Headphones,    cls: 'component-tag-audio'   },
+  { value: 'tweet',   label: '帖子',   icon: MessageCircle, cls: 'component-tag-tweet'   },
+  { value: 'other',   label: '其他',   icon: BookOpen,      cls: 'component-tag-other'   },
+]
 
 function getFavicon(url) {
   try {
     const domain = new URL(url).hostname
-    return `https://${domain}/favicon.ico`
+    return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`
   } catch { return null }
 }
 
@@ -33,59 +50,7 @@ function toEditorContent(text: string) {
   return text.split('\n\n').map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('')
 }
 
-function isSameTag(a: Pick<ItemTag, 'name' | 'type'>, b: Pick<ItemTag, 'name' | 'type'>) {
-  return a.type === b.type && a.name.trim().toLowerCase() === b.name.trim().toLowerCase()
-}
 
-function normalizeTagText(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/['".,!?()[\]{}\-_/\\]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-function buildTagSearchTokens(value: string) {
-  const normalized = normalizeTagText(value)
-  if (!normalized) return []
-
-  const compact = normalized.replace(/\s+/g, '')
-  const singular = normalized.endsWith('s') && normalized.length > 3
-    ? normalized.slice(0, -1)
-    : normalized
-
-  return Array.from(new Set([normalized, compact, singular.replace(/\s+/g, '')].filter(Boolean)))
-}
-
-function resolveExactCanonicalTag(
-  tag: Pick<ItemTag, 'name' | 'type'>,
-  tagLibrary: Array<{ name: string; type: ItemTag['type'] }>
-) {
-  const candidates = tagLibrary.filter(candidate => candidate.type === tag.type)
-  if (candidates.length === 0) return tag
-
-  const sourceTokens = buildTagSearchTokens(tag.name)
-  if (sourceTokens.length === 0) return tag
-
-  const exactMatch = candidates.find(candidate => {
-    const candidateTokens = buildTagSearchTokens(candidate.name)
-    return candidateTokens.some(token => sourceTokens.includes(token))
-  })
-
-  return exactMatch ? { ...tag, name: exactMatch.name } : tag
-}
-
-function makeUserTag(name: string, type: ItemTag['type'] = 'content'): ItemTag | null {
-  const nextName = String(name || '').replace(/^#/, '').trim()
-  if (!nextName) return null
-  return {
-    id: `draft-${type}-${nextName.toLowerCase()}`,
-    name: nextName,
-    type,
-    appliedBy: 'user',
-  }
-}
 
 export default function ItemDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -96,10 +61,7 @@ export default function ItemDetailPage() {
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState('')
   const [editUrl, setEditUrl] = useState('')
-  const [editTags, setEditTags] = useState<ItemTag[]>([])
-  const [tagDraftName, setTagDraftName] = useState('')
-  const [tagInputError, setTagInputError] = useState('')
-  const [tagLibrary, setTagLibrary] = useState<Array<{ name: string; type: ItemTag['type'] }>>([])
+  const [editType, setEditType] = useState('article')
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -128,26 +90,18 @@ export default function ItemDetailPage() {
       .finally(() => setLoading(false))
   }, [id])
 
-  // Sync editor content when item loads (only on item change, not editor state change)
+  // Sync editor content when item or editor becomes ready
   useEffect(() => {
     if (item?.note && editor && !isEditing) {
       editor.commands.setContent(toEditorContent(item.note))
     }
-  }, [item?.id])
+  }, [item, editor])
 
 
   function startEdit() {
     setEditTitle(item.title || '')
     setEditUrl(item.url || '')
-    setEditTags(Array.isArray(item.tags) ? item.tags.filter(Boolean) : [])
-    setTagDraftName('')
-    setTagInputError('')
-    void fetchUserTagLibrary()
-      .then(tags => setTagLibrary(tags))
-      .catch(error => {
-        console.error('[PB] fetch tag library failed:', error)
-        setTagLibrary([])
-      })
+    setEditType(item.type || 'article')
     if (item.type === 'note') {
       editor?.commands.setContent(toEditorContent(item.note || ''))
       editor?.setEditable(true)
@@ -160,8 +114,6 @@ export default function ItemDetailPage() {
       editor?.commands.setContent(toEditorContent(item.note || ''))
       editor?.setEditable(false)
     }
-    setTagDraftName('')
-    setTagInputError('')
     setIsEditing(false)
   }
 
@@ -171,12 +123,11 @@ export default function ItemDetailPage() {
       const isNote = item.type === 'note'
       const html = isNote ? (editor?.getHTML() || '') : ''
       const text = isNote ? (editor?.getText() || '') : ''
-      const updated = await updateItemWithClassification(item.id, {
+      const updated = await updateItem(item.id, {
         title: editTitle.trim() || (isNote ? text.slice(0, 20).trim() || '无标题' : '无标题'),
         url: isNote ? null : (editUrl.trim() || null),
-        type: item.type,
+        type: isNote ? 'note' : editType,
         note: html,
-        tags: editTags,
       })
       setItem(updated)
       if (isNote) editor?.setEditable(false)
@@ -224,49 +175,15 @@ export default function ItemDetailPage() {
     )
   }
 
+  const typeConf = TYPE_CONFIG[item.type] ?? TYPE_CONFIG.other
+  const TypeIcon = typeConf.icon
   const favicon = item.url ? getFavicon(item.url) : null
   const date = item.createdAt
     ? new Date(item.createdAt).toLocaleString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
     : ''
   const folder = folders.find(f => f.id === item.folderId)
   const isNote = item.type === 'note'
-  const displayTags = sortDisplayTags(getDisplayTags(item.tags || []))
-  const draftLower = tagDraftName.trim().toLowerCase()
-  const isSearchingTags = draftLower.length > 0
-  const searchTokens = isSearchingTags ? buildTagSearchTokens(draftLower) : []
-  const searchMatches = isSearchingTags
-    ? tagLibrary
-        .filter(lib => {
-          const libTokens = buildTagSearchTokens(lib.name)
-          return libTokens.some(lt => searchTokens.some(st => lt.includes(st) || st.includes(lt)))
-        })
-        .filter(lib => !editTags.some(tag => isSameTag(tag, lib)))
-        .slice(0, 8)
-    : []
-  const canCreateTag = Boolean(tagDraftName.trim()) && !searchMatches.some(match => normalizeTagText(match.name) === normalizeTagText(tagDraftName))
 
-  function handleAddTag(nameOverride?: string, typeOverride: ItemTag['type'] = 'content') {
-    const nextTag = makeUserTag(nameOverride ?? tagDraftName, typeOverride)
-    if (!nextTag) {
-      setTagInputError('')
-      return
-    }
-
-    const normalized = resolveExactCanonicalTag(nextTag, tagLibrary)
-    const duplicateTag = editTags.find(tag => isSameTag(tag, normalized))
-    if (duplicateTag) {
-      setTagInputError(`标签“${duplicateTag.name}”已存在`)
-      return
-    }
-
-    setTagInputError('')
-    setEditTags(prev => [...prev, { ...normalized, appliedBy: 'user', id: normalized.id || `${normalized.type}-${normalized.name}` }])
-    setTagDraftName('')
-  }
-
-  function handleRemoveTag(tagToRemove: ItemTag) {
-    setEditTags(prev => prev.filter(tag => !isSameTag(tag, tagToRemove)))
-  }
   return (
     <div className="min-h-screen bg-background">
       {/* Sticky top: header row + toolbar */}
@@ -308,6 +225,22 @@ export default function ItemDetailPage() {
 
       {/* Content */}
       <div className="max-w-2xl mx-auto px-6 md:px-12 py-6">
+        {/* Meta row — small, muted, above title */}
+        <div className="flex items-center gap-2.5 mb-2 flex-wrap">
+          <Badge
+            className={cn('h-auto text-[10px] px-1.5 py-1 gap-0.5 border-none', typeConf.cls)}
+            style={{ background: 'var(--tag-bg)', color: 'var(--tag-text)' }}
+          >
+            <TypeIcon size={9} />{typeConf.label}
+          </Badge>
+          {date && <span className="text-xs text-muted-foreground">{date}</span>}
+          {folder && (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <FolderOpen size={12} />{folder.name}
+            </span>
+          )}
+        </div>
+
         {/* Title — large document heading */}
         {isEditing ? (
           <input
@@ -332,121 +265,29 @@ export default function ItemDetailPage() {
           )
         )}
 
-        <div className="space-y-3 mb-6">
-          {!isEditing && (
-            <div className="flex flex-wrap gap-2">
-              {displayTags.map(tag => (
-                <TagChip
-                  key={`${tag.id}-${tag.appliedBy}`}
-                  tone={tag.appliedBy === 'user' ? 'user' : tag.type === 'source' ? 'source' : 'ai'}
-                >
-                  {tag.name}
-                </TagChip>
-              ))}
-            </div>
-          )}
-          {(date || folder) && (
-            <div className="flex items-center gap-2.5 flex-wrap text-xs text-muted-foreground">
-              {date && <span>{date}</span>}
-              {folder && (
-                <span className="flex items-center gap-1">
-                  <FolderOpen size={12} />{folder.name}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-
         {/* URL fields — bookmark */}
         {isEditing && !isNote && (
-          <div className="mb-6">
+          <div className="space-y-3 mb-6">
             <Input className="text-sm" value={editUrl} onChange={e => setEditUrl(e.target.value)} placeholder="https://..." />
-          </div>
-        )}
-
-        {isEditing && (
-          <div className="mb-6 space-y-2">
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-sm font-medium">标签</label>
+            <div className="flex gap-2 flex-wrap">
+              {BOOKMARK_TYPES.map(t => {
+                const Icon = t.icon
+                const selected = editType === t.value
+                return (
+                  <button
+                    key={t.value}
+                    onClick={() => setEditType(t.value)}
+                    className={cn(
+                      'inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors border-0',
+                      selected ? t.cls : 'bg-[var(--bg-secondary)] text-[var(--text-disabled)] hover:text-[var(--text-secondary)]'
+                    )}
+                    style={selected ? { background: 'var(--tag-bg)', color: 'var(--tag-text)' } : undefined}
+                  >
+                    <Icon size={10} />{t.label}
+                  </button>
+                )
+              })}
             </div>
-
-            <div className="relative">
-              <Input
-                className="pr-11 text-sm"
-                placeholder="输入标签名搜索或新建"
-                value={tagDraftName}
-                onChange={e => {
-                  setTagDraftName(e.target.value)
-                  if (tagInputError) setTagInputError('')
-                }}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    handleAddTag()
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => handleAddTag()}
-                aria-label="添加标签"
-                className={cn(
-                  'absolute inset-y-1.5 right-2 inline-flex items-center rounded-sm px-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-                  tagDraftName.trim()
-                    ? 'text-foreground hover:text-primary'
-                    : 'text-muted-foreground/60 hover:text-muted-foreground'
-                )}
-              >
-                <Check size={14} />
-              </button>
-            </div>
-
-            {tagInputError && <p className="text-xs text-destructive">{tagInputError}</p>}
-
-            {editTags.length > 0 && (
-              <div className="flex gap-1.5">
-                <span className="text-[11px] font-medium text-foreground shrink-0 leading-6">已选：</span>
-                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                  {editTags.map(tag => (
-                    <TagChip
-                      key={`${tag.id}-${tag.appliedBy}`}
-                      tone={tag.appliedBy === 'user' ? 'user' : tag.type === 'source' ? 'source' : 'ai'}
-                      onRemove={() => handleRemoveTag(tag)}
-                    >
-                      {tag.name}
-                    </TagChip>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {isSearchingTags && searchMatches.length > 0 && (
-              <div className="flex gap-1.5">
-                <span className="text-[11px] text-muted-foreground shrink-0 leading-6">匹配：</span>
-                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                  {searchMatches.map(tag => (
-                    <TagChip
-                      key={`${tag.type}-${tag.name}`}
-                      tone="muted"
-                      onClick={() => handleAddTag(tag.name, tag.type)}
-                    >
-                      {tag.name}
-                    </TagChip>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {isSearchingTags && canCreateTag && (
-              <div className="flex gap-1.5">
-                <span className="text-[11px] text-muted-foreground shrink-0 leading-6">新建：</span>
-                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                  <TagChip tone="muted" onClick={() => handleAddTag()}>
-                    {`新建“${tagDraftName.trim()}”`}
-                  </TagChip>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -467,13 +308,6 @@ export default function ItemDetailPage() {
             <Download size={14} />
             下载文件
           </a>
-        )}
-
-        {!isEditing && !isNote && item.note && item.note.trim() && (
-          <div className="mb-8 rounded-xl border border-border/80 bg-muted/25 px-4 py-3">
-            <div className="mb-1.5 text-xs font-medium text-foreground">备注</div>
-            <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{item.note}</p>
-          </div>
         )}
 
         {/* Body — note rich text */}
