@@ -76,7 +76,7 @@ function FolderItem({ folder, folders, items, selected, depth, onSelect, onRenam
   )
 }
 
-export default function Sidebar({ folders, items, selected, onSelect, onCreateFolder, onRenameFolder, onDeleteFolder, search, onSearch, onAdd, mobileOpen, onMobileClose }) {
+export default function Sidebar({ folders, items, selected, onSelect, onCreateFolder, onRenameFolder, onDeleteFolder, search, onSearch, onAdd, currentUserEmail, onSignOut, mobileOpen, onMobileClose }) {
   // Dialog states
   const [folderDialogOpen, setFolderDialogOpen] = useState(false)
   const [folderDialogMode, setFolderDialogMode] = useState('create')
@@ -197,6 +197,17 @@ export default function Sidebar({ folders, items, selected, onSelect, onCreateFo
         </div>
       </ScrollArea>
 
+      {currentUserEmail && (
+        <div className="px-4 py-2.5 border-t flex items-center justify-between gap-2">
+          <span className="text-xs text-muted-foreground truncate min-w-0">{currentUserEmail}</span>
+          <button
+            onClick={onSignOut}
+            className="shrink-0 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            退出登录
+          </button>
+        </div>
+      )}
       <div className="px-4 py-3 border-t">
         <button
           onClick={() => setGetAppOpen(true)}
