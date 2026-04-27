@@ -214,7 +214,6 @@ function itemToDb(item: Partial<BookmarkItem>): DbRow {
   if (item.folderId !== undefined) row.folder_id = item.folderId || null
   if (item.summary !== undefined) row.summary = item.summary
   if (item.categoryId !== undefined) row.category_id = item.categoryId
-  if (item.confidence !== undefined) row.confidence = item.confidence
   return row
 }
 
