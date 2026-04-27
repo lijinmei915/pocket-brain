@@ -1,4 +1,5 @@
 import { supabaseAuth } from './auth'
+import type { TablesInsert, TablesUpdate } from '@/types/supabase'
 
 export type ItemTag = {
   id: string
@@ -202,7 +203,7 @@ export async function deleteFile(publicUrl: string): Promise<void> {
 
 // ── DB mapping ──
 
-function itemToDb(item: Partial<BookmarkItem>): DbRow {
+function itemToDb(item: Partial<BookmarkItem>): TablesInsert<'items'> & TablesUpdate<'items'> {
   const row: DbRow = {}
   if (item.title !== undefined) row.title = item.title
   if (item.url !== undefined) row.url = item.url
