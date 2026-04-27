@@ -49,7 +49,7 @@ export async function fetchItem(id: string) {
 export async function createItem(item) {
   const { data, error } = await supabaseAuth
     .from('items')
-    .insert({ id: crypto.randomUUID(), created_at: Date.now(), ...itemToDb(item) })
+    .insert({ id: crypto.randomUUID(), ...itemToDb(item) })
     .select('*')
     .single()
   if (error) throw new Error(`Supabase error: ${error.message}`)
