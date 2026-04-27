@@ -184,10 +184,10 @@ export default function LoginPage() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-sm sm:flex-row sm-gap-md">
-                  <Button type="button" size="xl" shadow="md" className="sm:flex-1" onClick={() => setStatus('idle')}>
+                  <Button type="button" size="lg" shadow="md" className="sm:flex-1" onClick={() => setStatus('idle')}>
                     重新发送
                   </Button>
-                  <Button type="button" variant="outline" size="xl" shadow="md" className="sm:flex-1" onClick={() => setEmail('')}>
+                  <Button type="button" variant="ghost" size="lg" className="sm:flex-1" onClick={() => setEmail('')}>
                     更换邮箱
                   </Button>
                 </div>
@@ -198,7 +198,7 @@ export default function LoginPage() {
                 onSubmit={handleSubmit}
               >
                 <div className="stack-sm">
-                  <label htmlFor="login-email" className="text-sm font-semibold tracking-[0.01em] text-slate-900">
+                  <label htmlFor="login-email" className="text-lg font-semibold text-foreground">
                     邮箱
                   </label>
                   <Input
@@ -213,8 +213,8 @@ export default function LoginPage() {
                     placeholder="you@example.com"
                     aria-invalid={showError ? 'true' : 'false'}
                     disabled={isSending}
-                    className="border-slate-300/90 bg-white placeholder:text-slate-400"
-                    onChange={event => setEmail(event.target.value)}
+                    className="border-input"
+                    onChange={event => { setEmail(event.target.value); if (error) setError('') }}
                   />
                   <FormFieldMessage tone="error">{showError ? error : null}</FormFieldMessage>
                 </div>
@@ -223,7 +223,7 @@ export default function LoginPage() {
                   type="submit"
                   size="xl"
                   shadow="md"
-                  className="w-full bg-slate-950 hover:bg-slate-900"
+                  className="w-full"
                   disabled={isSending}
                 >
                   {isSending ? (

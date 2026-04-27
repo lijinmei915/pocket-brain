@@ -4,14 +4,14 @@ import { cva } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const inputVariants = cva(
-  "w-full min-w-0 appearance-none border bg-transparent text-base shadow-none transition-all outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40",
+  "w-full min-w-0 appearance-none border bg-transparent text-base shadow-none transition-all outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&:-webkit-autofill]:shadow-[0_0_0_1000px_var(--card)_inset] [&:-webkit-autofill]:[background-clip:content-box] [&:-webkit-autofill]:[-webkit-text-fill-color:var(--foreground)]",
   {
     variants: {
       size: {
         default: "h-8 rounded-lg px-2.5 py-1",
         sm: "h-9 rounded-xl px-3 py-2",
         lg: "h-12 rounded-xl px-3.5 py-2.5 text-[15px]",
-        xl: "h-14 rounded-2xl px-4 py-3 text-base",
+        xl: "h-14 rounded-2xl px-4 py-3 text-lg md:text-lg",
       },
       shadow: {
         none: "shadow-[var(--shadow-none)]",
