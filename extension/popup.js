@@ -20,12 +20,56 @@ const ENV_OPTIONS = [
 ]
 
 const STORAGE_KEY = 'pb-extension-environment'
-const DEFAULT_ENV_ID = ENV_OPTIONS[0].id
+const DEFAULT_ENV_ID = 'local-web'
+
+function getChromeApi() {
+  try {
+    if (typeof chrome !== 'undefined' && chrome) {
+      const tabs = chrome.tabs
+      const windowsApi = chrome.windows
+      if (tabs || windowsApi) {
+        return chrome
+      }
+    }
+  } catch {
+    // Ignore invalid global chrome shims and fall through.
+  }
+
+  try {
+    if (typeof browser !== 'undefined' && browser) {
+      const tabs = browser.tabs
+      const windowsApi = browser.windows
+      if (tabs || windowsApi) {
+        return browser
+      }
+    }
+  } catch {
+    // Ignore invalid global browser shims and fall through.
+  }
+
+  return null
+}
+
+function getTabsApi(api) {
+  try {
+    return api?.tabs || null
+  } catch {
+    return null
+  }
+}
+
+function getWindowsApi(api) {
+  try {
+    return api?.windows || null
+  } catch {
+    return null
+  }
+}
 
 function storageGet(key) {
   return new Promise(resolve => {
     try {
-      chrome.storage.local.get(key, result => resolve(result?.[key]))
+      resolve(window.localStorage.getItem(key) || undefined)
     } catch {
       resolve(undefined)
     }
@@ -35,10 +79,13 @@ function storageGet(key) {
 function storageSet(values) {
   return new Promise(resolve => {
     try {
-      chrome.storage.local.set(values, resolve)
+      for (const [key, value] of Object.entries(values)) {
+        window.localStorage.setItem(key, String(value))
+      }
     } catch {
-      resolve()
+      // Ignore storage failures; the popup can still use the default environment.
     }
+    resolve()
   })
 }
 
@@ -103,6 +150,9 @@ async function checkEnvironment(option) {
 }
 
 async function openSelectedEnvironment() {
+  const api = getChromeApi()
+  const tabsApi = getTabsApi(api)
+  const windowsApi = getWindowsApi(api)
   const selectedId = await getSelectedEnvId()
   const option = getEnvOption(selectedId)
   const available = await checkEnvironment(option)
@@ -112,12 +162,17 @@ async function openSelectedEnvironment() {
     return
   }
 
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+  if (!tabsApi?.query || !windowsApi?.create) {
+    setStatus('当前扩展 API 不可用，请重新加载扩展后再试', true)
+    return
+  }
+
+  const [tab] = await tabsApi.query({ active: true, currentWindow: true })
   const url = tab?.url || ''
   const title = tab?.title || ''
   const saveUrl = `${option.baseUrl}/save?url=${encodeURIComponent(url)}&title=${encodeURIComponent(title)}`
 
-  chrome.windows.create({
+  windowsApi.create({
     url: saveUrl,
     type: 'popup',
     width: 400,
@@ -129,6 +184,16 @@ async function openSelectedEnvironment() {
 
 async function init() {
   try {
+    const api = getChromeApi()
+    const tabsApi = getTabsApi(api)
+    const windowsApi = getWindowsApi(api)
+    console.info('[PB extension] popup init', {
+      hasChrome: typeof chrome !== 'undefined',
+      hasBrowser: typeof browser !== 'undefined',
+      hasTabs: Boolean(tabsApi),
+      hasWindows: Boolean(windowsApi),
+    })
+
     const selectedId = await getSelectedEnvId()
     updateCurrentEnv(selectedId)
     renderOptions(selectedId)

@@ -1,8 +1,8 @@
 /* ── Layer 1: 全局基础色 ──────────────────────────── */
 :root {
     /* 品牌色 */
-    --primary:        #333333;
-    --primary-hover:  #404040;
+    --primary:        #262626;
+    --primary-hover:  #1F1F1F;
 
     /* 文字色 */
     --text-primary:   #262626;
@@ -21,15 +21,24 @@
     --bg-card:        #FFFFFF;
     --border:         #E8E8E8;
 
+    /* 间距等级 */
+    --space-xs:       4px;
+    --space-sm:       8px;
+    --space-md:       16px;
+    --space-lg:       20px;
+    --space-xl:       24px;
+
     /* 图标色 */
-    --icon-primary:   #333333;
+    --icon-primary:   #262626;
     --icon-secondary: #8C8C8C;
     --icon-disabled:  #BFBFBF;
 
-    /* 其他 */
-    --shadow-light:   0 2px 8px rgba(0, 0, 0, 0.08);
-    --shadow-medium:  0 4px 16px rgba(0, 0, 0, 0.12);
-    --focus-ring:     0 0 0 3px rgba(51, 51, 51, 0.2);
+    /* 阴影等级 */
+    --shadow-none:    none;
+    --shadow-md:      0 12px 24px rgba(15, 23, 42, 0.10);
+    --shadow-md-hover: 0 16px 32px rgba(15, 23, 42, 0.14);
+    --shadow-lg:      0 24px 60px rgba(45, 65, 91, 0.12);
+    --focus-ring:     0 0 0 3px rgba(38, 38, 38, 0.2);
     --card-shadow:    none;
     --radius:         0.5rem;
 
@@ -134,5 +143,5 @@
 }
 .component-sidebar-active {
     --sidebar-bg:   #f3f4f6;
-    --sidebar-text: #333333;
+    --sidebar-text: #262626;
 }

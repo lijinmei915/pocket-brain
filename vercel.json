@@ -1,7 +1,4 @@
 {
-  "engines": {
-    "node": ">=20.0.0"
-  },
   "installCommand": "npm install --legacy-peer-deps",
   "rewrites": [
     {

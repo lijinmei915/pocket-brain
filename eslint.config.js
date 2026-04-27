@@ -26,4 +26,20 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  {
+    files: ['extension/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.webextensions,
+      },
+    },
+  },
+  {
+    files: ['src/components/ui/*.jsx'],
+    rules: {
+      // shadcn/ui files often export helpers and hooks alongside components.
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])

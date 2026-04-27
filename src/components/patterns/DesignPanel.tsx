@@ -7,7 +7,7 @@ type PartialTokens = Partial<DesignTokens>
 
 const DESIGN_TOKENS = {
   colors: {
-    primary:          { name: '主色',     value: '#333333',  group: '品牌' },
+    primary:          { name: '主色',     value: '#262626',  group: '品牌' },
     'text-primary':   { name: '主文字',   value: '#262626',  group: '文字' },
     'text-secondary': { name: '次要文字', value: '#8C8C8C',  group: '文字' },
     'bg-primary':     { name: '页面背景', value: '#FAFAFA',  group: '背景' },
@@ -290,8 +290,8 @@ function TokensTab({ designTokens, onChange, onSave, onCopy, onReset, saveStatus
                 onClick={() => onChange('effects', 'shadow', { ...designTokens.effects.shadow, value: key })}
                 className="py-3 text-[11px] border rounded transition-colors"
                 style={{
-                  borderColor: designTokens.effects.shadow.value === key ? '#333333' : '#E8E8E8',
-                  background: designTokens.effects.shadow.value === key ? '#33333310' : '#fff',
+                  borderColor: designTokens.effects.shadow.value === key ? '#262626' : '#E8E8E8',
+                  background: designTokens.effects.shadow.value === key ? '#26262610' : '#fff',
                   boxShadow: preset.value,
                 }}
               >

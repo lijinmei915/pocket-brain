@@ -1,4 +1,4 @@
-import { getAccessToken, getCurrentUserId } from '@/utils/auth'
+import { getAccessToken, getAuthState, getCurrentUserId } from '@/utils/auth'
 
 export interface ItemTag {
   id: string
@@ -29,7 +29,10 @@ export interface BookmarkItem {
 }
 
 type DbRow = Record<string, unknown>
-type RestOptions = Omit<RequestInit, 'headers'> & { headers?: Record<string, string> }
+type RestOptions = Omit<RequestInit, 'headers'> & {
+  authToken?: string
+  headers?: Record<string, string>
+}
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY
@@ -40,8 +43,27 @@ async function getTagOwnerId() {
   return (await getCurrentUserId()) || DEFAULT_TAG_USER_ID
 }
 
-async function getHeaders(extraHeaders: Record<string, string> = {}) {
-  const accessToken = await getAccessToken()
+async function requireCurrentUserId() {
+  const userId = await getCurrentUserId()
+  if (!userId) {
+    throw new Error('当前登录状态已失效，请重新登录后再保存')
+  }
+  return userId
+}
+
+async function requireCurrentSession() {
+  const { session, user } = await getAuthState()
+  if (!session?.access_token || !user?.id) {
+    throw new Error('当前登录状态已失效，请重新登录后再保存')
+  }
+  return {
+    accessToken: session.access_token,
+    userId: user.id,
+  }
+}
+
+async function getHeaders(extraHeaders: Record<string, string> = {}, authToken?: string) {
+  const accessToken = authToken || await getAccessToken()
   return {
     apikey: SUPABASE_KEY,
     Authorization: 'Bearer ' + (accessToken || SUPABASE_KEY),
@@ -51,9 +73,10 @@ async function getHeaders(extraHeaders: Record<string, string> = {}) {
 }
 
 async function rest(path: string, options: RestOptions = {}) {
+  const { authToken, ...requestOptions } = options
   const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
-    ...options,
-    headers: await getHeaders(options.headers),
+    ...requestOptions,
+    headers: await getHeaders(options.headers, authToken),
   })
   if (!res.ok) {
     const msg = await res.text()
@@ -107,10 +130,12 @@ export async function fetchItemByUrl(url: string) {
 }
 
 export async function createItem(item) {
+  const { accessToken, userId } = await requireCurrentSession()
   const data = await rest('/items?select=*', {
     method: 'POST',
+    authToken: accessToken,
     headers: { Prefer: 'return=representation' },
-    body: JSON.stringify({ id: crypto.randomUUID(), ...itemToDb(item) }),
+    body: JSON.stringify({ id: crypto.randomUUID(), user_id: userId, ...itemToDb(item) }),
   })
   return itemFromDb(Array.isArray(data) ? data[0] : data)
 }
@@ -285,10 +310,12 @@ export async function fetchFolders() {
 }
 
 export async function createFolder(name, parentId = null) {
+  const { accessToken, userId } = await requireCurrentSession()
   const data = await rest('/folders?select=*', {
     method: 'POST',
+    authToken: accessToken,
     headers: { Prefer: 'return=representation' },
-    body: JSON.stringify({ name, parent_id: parentId || null }),
+    body: JSON.stringify({ name, parent_id: parentId || null, user_id: userId }),
   })
   return folderFromDb(Array.isArray(data) ? data[0] : data)
 }

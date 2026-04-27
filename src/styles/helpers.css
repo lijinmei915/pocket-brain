@@ -27,3 +27,28 @@
   padding-left: 1rem;
   color: var(--text-secondary);
 }
+
+/* ── Spacing Tokens / Utilities ── */
+.stack-xs > * + * { margin-top: var(--space-xs); }
+.stack-sm > * + * { margin-top: var(--space-sm); }
+.stack-md > * + * { margin-top: var(--space-md); }
+.stack-lg > * + * { margin-top: var(--space-lg); }
+.stack-xl > * + * { margin-top: var(--space-xl); }
+
+.gap-xs { gap: var(--space-xs); }
+.gap-sm { gap: var(--space-sm); }
+.gap-md { gap: var(--space-md); }
+.gap-lg { gap: var(--space-lg); }
+.gap-xl { gap: var(--space-xl); }
+
+.pad-card-xl {
+  padding: var(--space-xl);
+}
+
+.pt-space-sm {
+  padding-top: var(--space-sm);
+}
+
+@media (min-width: 640px) {
+  .sm-gap-md { gap: var(--space-md); }
+}

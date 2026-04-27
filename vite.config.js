@@ -4,6 +4,10 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 import fs from 'fs'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 // ── 设计 token 同步插件（仅 dev 模式生效）──
 function designTokenPlugin() {
@@ -105,7 +109,7 @@ export default defineConfig({
         name: 'Pocket Brain',
         short_name: 'Pocket Brain',
         description: '你的个人知识库',
-        theme_color: '#333333',
+        theme_color: '#262626',
         background_color: '#FAFAFA',
         display: 'standalone',
         start_url: '/',

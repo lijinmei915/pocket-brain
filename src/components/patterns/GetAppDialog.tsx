@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
-const APP_URL = typeof window !== 'undefined' ? window.location.origin : 'https://pocket-brain-blush.vercel.app'
+const APP_URL = import.meta.env.VITE_APP_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://pocket-brain-blush.vercel.app')
 const BOOKMARKLET = `javascript:(function(){var a='${APP_URL}',u=encodeURIComponent(location.href),t=encodeURIComponent(document.title),s=a+'/save?url='+u+'&title='+t,w=window.open(s,'pbsave','width=360,height=560,toolbar=0,menubar=0,scrollbars=1');if(!w)location.href=s;})();`
 
 function Step({ n, children }: { n: number; children: React.ReactNode }) {
