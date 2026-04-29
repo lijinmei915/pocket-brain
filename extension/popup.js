@@ -1,3 +1,7 @@
+const SUPABASE_STORAGE_KEY = 'sb-clujgrcidguwgufqekve-auth-token'
+
+let cachedAuthState = null
+
 const ENV_OPTIONS = [
   {
     id: 'local-ai',
@@ -14,8 +18,8 @@ const ENV_OPTIONS = [
   {
     id: 'production',
     label: '线上',
-    description: 'https://pocket-brain-blush.vercel.app',
-    baseUrl: 'https://pocket-brain-blush.vercel.app',
+    description: 'https://pocketbrain.me',
+    baseUrl: 'https://pocketbrain.me',
   },
 ]
 
@@ -63,6 +67,63 @@ function getWindowsApi(api) {
     return api?.windows || null
   } catch {
     return null
+  }
+}
+
+function getScriptingApi() {
+  try {
+    if (typeof chrome !== 'undefined' && chrome?.scripting?.executeScript) return chrome.scripting
+  } catch {}
+  try {
+    if (typeof browser !== 'undefined' && browser?.scripting?.executeScript) return browser.scripting
+  } catch {}
+  return null
+}
+
+// Returns { status: 'logged_in', email } | { status: 'logged_out' } | { status: 'unknown' }
+async function getAuthState() {
+  try {
+    const api = getChromeApi()
+    const tabsApi = getTabsApi(api)
+    if (!tabsApi?.query) return { status: 'unknown' }
+
+    const tabs = await tabsApi.query({ url: 'https://pocketbrain.me/*' })
+    if (!tabs.length) return { status: 'unknown' }
+
+    const scripting = getScriptingApi()
+    if (!scripting) return { status: 'unknown' }
+
+    const storageKey = SUPABASE_STORAGE_KEY
+    const results = await scripting.executeScript({
+      target: { tabId: tabs[0].id },
+      func: (key) => {
+        try {
+          const raw = localStorage.getItem(key)
+          const parsed = raw ? JSON.parse(raw) : null
+          const user = parsed?.user ?? null
+          return user ? { email: user.email } : null
+        } catch {
+          return null
+        }
+      },
+      args: [storageKey],
+    })
+    const user = results?.[0]?.result ?? null
+    return user ? { status: 'logged_in', email: user.email } : { status: 'logged_out' }
+  } catch {
+    return { status: 'unknown' }
+  }
+}
+
+function renderAuthStatus(state) {
+  const el = document.getElementById('auth-status')
+  if (!el) return
+  if (state.status === 'logged_in') {
+    el.innerHTML = `<span class="auth-dot on"></span><span class="auth-text">${state.email}</span>`
+  } else if (state.status === 'logged_out') {
+    el.innerHTML = `<span class="auth-dot off"></span><span class="auth-text muted">未登录</span>`
+  } else {
+    el.innerHTML = `<span class="auth-text muted">站点未打开，无法检测</span>`
   }
 }
 
@@ -167,6 +228,16 @@ async function openSelectedEnvironment() {
     return
   }
 
+  // 线上环境且确认未登录 → 直接开登录页，避免 magic link 回调在新 tab 的双窗口问题
+  if (option.id === 'production' && cachedAuthState?.status === 'logged_out') {
+    if (tabsApi?.create) {
+      await tabsApi.create({ url: `${option.baseUrl}/login`, active: true })
+      setStatus('请先登录，登录后再点击插件保存')
+      window.close()
+      return
+    }
+  }
+
   const [tab] = await tabsApi.query({ active: true, currentWindow: true })
   const url = tab?.url || ''
   const title = tab?.title || ''
@@ -194,14 +265,25 @@ async function init() {
       hasWindows: Boolean(windowsApi),
     })
 
-    const selectedId = await getSelectedEnvId()
+    const [selectedId, authState] = await Promise.all([
+      getSelectedEnvId(),
+      getAuthState(),
+    ])
+
+    cachedAuthState = authState
+    renderAuthStatus(authState)
     updateCurrentEnv(selectedId)
     renderOptions(selectedId)
     setStatus('')
 
     document.getElementById('open-btn').addEventListener('click', openSelectedEnvironment)
     document.getElementById('reload-btn').addEventListener('click', async () => {
-      const refreshedId = await getSelectedEnvId()
+      const [refreshedId, refreshedAuth] = await Promise.all([
+        getSelectedEnvId(),
+        getAuthState(),
+      ])
+      cachedAuthState = refreshedAuth
+      renderAuthStatus(refreshedAuth)
       updateCurrentEnv(refreshedId)
       renderOptions(refreshedId)
       setStatus('已刷新当前选择')

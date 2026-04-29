@@ -36,7 +36,7 @@ const buttonVariants = cva(
       },
       shadow: {
         none: "shadow-[var(--shadow-none)]",
-        md: "shadow-[var(--shadow-md)] hover:shadow-[var(--shadow-md-hover)]",
+        md: "shadow-[var(--shadow-md)] hover:shadow-[var(--shadow-lg)]",
         lg: "shadow-[var(--shadow-lg)] hover:shadow-[var(--shadow-lg)]",
       },
     },

@@ -241,6 +241,8 @@ export default function App() {
 function RequireAuth({ children, loading, user }) {
   const location = useLocation()
 
+  if (import.meta.env.VITE_DEV_BYPASS_AUTH === 'true') return children
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center gap-2 bg-background text-sm text-muted-foreground">

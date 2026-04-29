@@ -4,7 +4,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { TextStyle, Color, FontSize, BackgroundColor } from '@tiptap/extension-text-style'
 import Underline from '@tiptap/extension-underline'
-import { ChevronDown, Search, Settings } from 'lucide-react'
+import { ChevronDown, Search, Settings, Target, LayoutGrid, Users, Shield, Zap, Eye, Puzzle, Type, AlignLeft, Play, Ruler, Box, Code2, Layers, Link, Lightbulb, ArrowRight, Copy, Check, Sun } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { TagChip } from '@/components/ui/tag-chip'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -30,6 +30,23 @@ import EditorBubbleMenu from '@/components/patterns/EditorBubbleMenu'
 import DesignPanel from '@/components/patterns/DesignPanel'
 import { Logo } from '@/components/ui/Logo'
 
+function CopyButton({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        navigator.clipboard.writeText(value)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+      }}
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+    >
+      {copied ? <Check size={13} className="text-green-600" /> : <Copy size={13} />}
+    </button>
+  )
+}
+
 const navGroups = [
   {
     id: 'overview',
@@ -40,12 +57,6 @@ const navGroups = [
         title: 'Overview',
         label: '全局规范',
         doc: 'docs/DESIGN_STANDARDS.md',
-      },
-      {
-        id: 'component-index',
-        title: 'ComponentIndex',
-        label: '组件目录',
-        doc: 'docs/design/component-index.md',
       },
     ],
   },
@@ -271,7 +282,6 @@ const sections = navGroups.flatMap(group => group.items)
 
 const sectionDescriptions: Record<string, string> = {
   overview: '设计规范总入口、阅读顺序和统一写法都从这里开始看。',
-  'component-index': '先判断组件在哪一层，再决定看哪份文档和哪一段 showcase。',
   'color-tokens': '先看颜色本身，再看它如何映射成页面和组件语义色。',
   'shadow-tokens': '定义组件和容器如何用阴影表达层级。',
   layout: '协助定义 Pocket Brain 的页面级排版、间距节奏和容器层级。',
@@ -416,7 +426,7 @@ export default function DesignShowcasePage() {
   const activeSectionMeta = sections.find(section => section.id === activeSection)
 
   return (
-    <div className="min-h-screen bg-[#f7f8fb] text-foreground">
+    <div className="min-h-screen bg-card text-foreground">
       <div className="grid min-h-screen grid-cols-[240px_minmax(0,1fr)]">
         <aside className="sticky top-0 flex h-screen flex-col border-r border-[#e8ebf2] bg-[#fbfcfe]">
           <div className="flex h-16 items-center border-b border-border px-4">
@@ -456,8 +466,8 @@ export default function DesignShowcasePage() {
 
         </aside>
 
-        <main className="min-w-0 bg-background">
-          <div className="sticky top-0 z-20 flex h-16 items-center justify-between gap-6 border-b border-border bg-background px-6">
+        <main className="min-w-0 bg-card">
+          <div className="sticky top-0 z-20 flex h-16 items-center justify-between gap-6 border-b border-border bg-card px-6">
             <div className="relative w-full max-w-sm">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -483,72 +493,149 @@ export default function DesignShowcasePage() {
             </div>
           </div>
 
-          <div className="bg-background px-8 py-8 md:px-10">
+          <div className="bg-card px-8 py-8 md:px-10">
             <div className="mx-auto max-w-5xl space-y-8">
 
             {activeSection === 'overview' && (
               <SectionCard title="全局规范 Overview" doc="docs/DESIGN_STANDARDS.md" description={sectionDescriptions.overview}>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="rounded-xl border border-border bg-background p-4">
-                    <p className="mb-2 text-sm font-medium">现在这页负责什么</p>
-                    <ul className="list-disc space-y-1 pl-4 text-sm leading-6 text-muted-foreground">
-                      <li>优先展示真实组件映射，不再只看静态示意。</li>
-                      <li>组件文档写法和真实组件结构同步推进。</li>
-                      <li>新 token、间距、阴影规则先同步到这里。</li>
-                    </ul>
+                <div className="space-y-4">
+
+                  {/* Row 1: 目标 / 范围 / 受众 */}
+                  <div className="grid grid-cols-3 gap-4">
+                    {[
+                      { icon: Target, title: '目标', desc: '建立组件驱动的设计语言，保持 Pocket Brain 视觉与交互的一致性，提升开发效率。' },
+                      { icon: LayoutGrid, title: '范围', desc: '适用于 Pocket Brain 所有页面的 UI 组件、Design Token 和开发规范。' },
+                      { icon: Users, title: '受众', desc: '前端工程师、UI 开发者。' },
+                    ].map(({ icon: Icon, title, desc }) => (
+                      <div key={title} className="rounded-xl border border-border bg-card p-5">
+                        <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card">
+                          <Icon size={17} className="text-foreground" />
+                        </div>
+                        <p className="mb-1.5 font-semibold">{title}</p>
+                        <p className="text-sm leading-6 text-muted-foreground">{desc}</p>
+                      </div>
+                    ))}
                   </div>
-                  <div className="rounded-xl border border-border bg-background p-4">
-                    <p className="mb-2 text-sm font-medium">阅读顺序</p>
-                    <ol className="list-decimal space-y-1 pl-4 text-sm leading-6 text-muted-foreground">
-                      <li>先看总规范和组件分层。</li>
-                      <li>再看 Tokens、布局和基础组件的真实映射。</li>
-                      <li>最后看业务组件和页面场景。</li>
-                    </ol>
+
+                  {/* Row 2: 阅读顺序 + 设计原则 */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="rounded-xl border border-border bg-card p-5">
+                      <p className="mb-4 font-semibold">阅读顺序</p>
+                      <div className="space-y-4">
+                        {[
+                          { n: 1, title: '先看总规范和组件分层', desc: '了解整体结构和命名规则' },
+                          { n: 2, title: '再看 Tokens、布局和基础组件', desc: '掌握设计语言的基础能力' },
+                          { n: 3, title: '最后看业务组件和页面场景', desc: '理解在实际业务中的组合与应用' },
+                        ].map(({ n, title, desc }) => (
+                          <div key={n} className="flex gap-3">
+                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border text-xs font-semibold text-muted-foreground">
+                              {n}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">{title}</p>
+                              <p className="text-xs text-muted-foreground">{desc}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-border bg-card p-5">
+                      <p className="mb-4 font-semibold">设计原则</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        {[
+                          { icon: Shield, title: '一致性', desc: '统一的视觉、交互和代码规范，降低认知成本。' },
+                          { icon: Zap, title: '简洁高效', desc: '减少不必要的复杂度，让用户和开发者更高效。' },
+                          { icon: Eye, title: '可访问性', desc: '确保不同用户在不同场景下都能顺畅使用。' },
+                          { icon: Puzzle, title: '可扩展性', desc: '灵活的设计系统，支持业务增长与多端适配。' },
+                        ].map(({ icon: Icon, title, desc }) => (
+                          <div key={title}>
+                            <Icon size={17} className="mb-2 text-foreground" />
+                            <p className="mb-1 text-sm font-medium">{title}</p>
+                            <p className="text-xs leading-5 text-muted-foreground">{desc}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                  <div className="rounded-xl border border-border bg-background p-4 md:col-span-2">
-                    <p className="mb-2 text-sm font-medium">设计文档统一写法</p>
-                    <ol className="list-decimal space-y-1 pl-4 text-sm leading-6 text-muted-foreground">
-                      <li>标题</li>
-                      <li>一句话说明</li>
-                      <li>使用</li>
-                      <li>设计规则（尺寸 / 交互 / 视觉）</li>
-                      <li>组件结构</li>
-                      <li>代码演示</li>
-                      <li>Design Token</li>
-                      <li>相关资源</li>
-                    </ol>
+
+                  {/* Row 3: 设计文档统一写法 */}
+                  <div className="rounded-xl border border-border bg-card p-5">
+                    <p className="mb-5 font-semibold">设计文档统一写法</p>
+                    <div className="grid grid-cols-8 divide-x divide-border">
+                      {[
+                        { n: '01', label: '标题', icon: Type },
+                        { n: '02', label: '一句话说明', icon: AlignLeft },
+                        { n: '03', label: '使用', icon: Play },
+                        { n: '04', label: '设计规则', sublabel: '尺寸 / 交互 / 视觉', icon: Ruler },
+                        { n: '05', label: '组件结构', icon: Box },
+                        { n: '06', label: '代码演示', icon: Code2 },
+                        { n: '07', label: 'Design Token', icon: Layers },
+                        { n: '08', label: '相关资源', icon: Link },
+                      ].map(({ n, label, sublabel, icon: Icon }) => (
+                        <div key={n} className="flex flex-col gap-1.5 px-4 first:pl-0 last:pr-0">
+                          <span className="text-[10px] font-medium text-muted-foreground">{n}</span>
+                          <p className="text-xs font-semibold leading-4">{label}</p>
+                          {sublabel && <p className="text-[10px] text-muted-foreground leading-3">{sublabel}</p>}
+                          <Icon size={20} className="mt-2 text-foreground" />
+                        </div>
+                      ))}
+                    </div>
                   </div>
+
+                  {/* Row 4: 组件索引 */}
+                  <div className="rounded-xl border border-border bg-card p-5">
+                    <p className="mb-4 font-semibold">组件索引</p>
+
+                    {/* 索引规则 */}
+                    <div className="mb-5 grid grid-cols-2 gap-3 text-sm">
+                      <div className="rounded-lg border border-border p-3">
+                        <span className="font-medium">Primitive</span>
+                        <span className="ml-2 text-muted-foreground">直接跟随 shadcn 基础原语，优先复用，不再造第二套底层交互</span>
+                      </div>
+                      <div className="rounded-lg border border-border p-3">
+                        <span className="font-medium">Pattern</span>
+                        <span className="ml-2 text-muted-foreground">在 Primitive 上补业务语义和节奏，负责组合结构与交互规则</span>
+                      </div>
+                    </div>
+
+                    {/* 索引目录 */}
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Primitive</p>
+                        <div className="space-y-1.5">
+                          {['Button', 'TagChip / Badge', 'Tabs', 'Input / Textarea / Select', 'Dialog family'].map(name => (
+                            <p key={name} className="text-sm text-foreground">{name}</p>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Pattern</p>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                          {['标签系统', 'LinkField', 'TitleField', 'FolderSelectField', 'NoteField', 'TagField', 'ContentTypeTabs', 'SaveForm', 'AI Actions', '卡片模式', 'MoreButton', 'GetAppDialog', 'DialogActions', 'Sidebar', 'Dialog family', 'Login', 'EditorBubbleMenu', 'DesignPanel'].map(name => (
+                            <p key={name} className="text-sm text-foreground">{name}</p>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bottom: 下一步建议 */}
+                  <div className="flex items-center justify-between rounded-xl border border-border bg-card px-5 py-3.5">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Lightbulb size={15} className="shrink-0" />
+                      <span className="font-medium text-foreground">下一步建议</span>
+                      <span>继续阅读：Folder tree actions、Card / Layout React section。</span>
+                    </div>
+                    <Button variant="outline" size="sm" shadow="none" className="shrink-0 gap-1">
+                      开始阅读 <ArrowRight size={13} />
+                    </Button>
+                  </div>
+
                 </div>
               </SectionCard>
             )}
 
-            {activeSection === 'component-index' && (
-              <SectionCard title="组件目录 ComponentIndex" doc="docs/design/component-index.md" description={sectionDescriptions['component-index']}>
-                <div className="space-y-5">
-                  <div className="rounded-xl border border-border bg-background p-4 text-sm leading-6 text-muted-foreground">
-                    这一节对应组件目录总表：先判断是 <strong>Primitive</strong> 还是 <strong>Pattern</strong>，再决定去哪个文档和哪个 showcase section。
-                  </div>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="rounded-xl border border-border bg-background p-4">
-                      <p className="mb-2 text-sm font-medium">Primitive</p>
-                      <ul className="list-disc space-y-1 pl-4 text-sm leading-6 text-muted-foreground">
-                        <li>直接跟随 shadcn 的基础原语</li>
-                        <li>优先复用，不再造第二套底层交互</li>
-                        <li>例子：Button、Input、Tabs、TagChip</li>
-                      </ul>
-                    </div>
-                    <div className="rounded-xl border border-border bg-background p-4">
-                      <p className="mb-2 text-sm font-medium">Pattern</p>
-                      <ul className="list-disc space-y-1 pl-4 text-sm leading-6 text-muted-foreground">
-                        <li>在 Primitive 上补业务语义和节奏</li>
-                        <li>负责字段结构、弹窗家族、保存表单等组合</li>
-                        <li>例子：SaveForm、DialogActions、Login、Tags</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </SectionCard>
-            )}
 
             {activeSection === 'layout' && (
               <SectionCard title="布局 Layout" doc="docs/design/layout.md" description={sectionDescriptions.layout}>
@@ -669,24 +756,79 @@ export default function DesignShowcasePage() {
 
             {activeSection === 'shadow-tokens' && (
               <SectionCard title="阴影 Shadow" doc="docs/design/tokens/shadow.md" description={sectionDescriptions['shadow-tokens']}>
-                <div className="space-y-5">
-                  <div className="rounded-xl border border-border bg-background p-4 text-sm leading-6 text-muted-foreground">
-                    阴影现在已经独立成 token，并通过组件的 <code className="rounded bg-background px-1.5 py-0.5 font-mono text-[11px]">shadow</code> 选项来引用。
+                <div className="space-y-4">
+
+                  {/* 阴影概览 */}
+                  <div className="grid grid-cols-4 gap-4">
+                    {[
+                      { value: '3', label: '阴影层级', sub: '覆盖所有场景' },
+                      { value: '1', label: '光源方向', sub: '统一顶部光源（0°）' },
+                      { value: '一致', label: '设计原则', sub: '柔和自然，不刺眼' },
+                      { value: null, icon: Sun, label: '浅色模式', sub: '当前主题阴影规范' },
+                    ].map(({ value, icon: Icon, label, sub }) => (
+                      <div key={label} className="rounded-xl border border-border bg-card p-5">
+                        <div className="mb-1 text-2xl font-bold text-foreground">
+                          {Icon ? <Icon size={24} /> : value}
+                        </div>
+                        <p className="text-sm font-medium">{label}</p>
+                        <p className="text-xs text-muted-foreground">{sub}</p>
+                      </div>
+                    ))}
                   </div>
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <div className="rounded-xl border border-border bg-background p-4 shadow-none">
-                      <p className="mb-2 text-sm font-medium">none</p>
-                      <p className="text-sm text-muted-foreground">默认，无阴影。</p>
-                    </div>
-                    <div className="rounded-xl border border-border bg-background p-4">
-                      <p className="mb-2 text-sm font-medium">md</p>
-                      <p className="text-sm text-muted-foreground">组件级强调，如主按钮、成组操作按钮。</p>
-                    </div>
-                    <div className="rounded-xl border border-border bg-background p-4">
-                      <p className="mb-2 text-sm font-medium">lg</p>
-                      <p className="text-sm text-muted-foreground">容器级强调，如卡片、面板、弹窗壳层。</p>
+
+                  {/* 阴影层级表格 */}
+                  <div>
+                    <p className="mb-4 font-semibold">阴影层级</p>
+                    <div className="overflow-hidden rounded-xl border border-border">
+                      {/* 表头 */}
+                      <div className="grid grid-cols-[120px_1fr_64px_280px_36px] gap-4 border-b border-border bg-muted/40 px-4 py-2.5 text-xs font-medium text-muted-foreground">
+                        <span>名称</span>
+                        <span>用途</span>
+                        <span>示例</span>
+                        <span>Token 值（Box Shadow）</span>
+                        <span />
+                      </div>
+                      {/* 行 */}
+                      {[
+                        { name: 'none',  desc: '无阴影，默认状态',              shadow: 'none',                             token: 'none' },
+                        { name: 'md',    desc: '组件级强调（如主按钮、标签）',   shadow: '0 4px 12px rgba(0, 0, 0, 0.08)',   token: '0 4px 12px rgba(0, 0, 0, 0.08)' },
+                        { name: 'lg',    desc: '容器级强调（如卡片、弹窗壳层）', shadow: '0 8px 24px rgba(0, 0, 0, 0.12)',   token: '0 8px 24px rgba(0, 0, 0, 0.12)' },
+                      ].map(({ name, desc, shadow, token }) => (
+                        <div key={name} className="grid grid-cols-[120px_1fr_64px_280px_36px] items-center gap-4 border-b border-border px-4 py-3 last:border-0">
+                          <span className="inline-flex">
+                            <code className="rounded border border-border bg-muted px-2 py-0.5 font-mono text-xs">{name}</code>
+                          </span>
+                          <span className="text-sm text-muted-foreground">{desc}</span>
+                          <div
+                            className="h-8 w-8 rounded-lg border border-border bg-card"
+                            style={{ boxShadow: shadow === 'none' ? 'none' : shadow }}
+                          />
+                          <span className="font-mono text-xs text-muted-foreground">{token}</span>
+                          <CopyButton value={token} />
+                        </div>
+                      ))}
                     </div>
                   </div>
+
+                  {/* 使用建议 */}
+                  <div>
+                    <p className="mb-4 font-semibold">使用建议</p>
+                    <div className="grid grid-cols-4 gap-4">
+                      {[
+                        { icon: Layers, title: '层级表达', desc: '通过阴影层级分界面元素的前后层次关系。' },
+                        { icon: Box,    title: '空间关系', desc: '利用阴影表现元素与背景的空间关系。' },
+                        { icon: Zap,    title: '状态反馈', desc: '交互状态变化时，合理调整阴影增强反馈。' },
+                        { icon: Code2,  title: '性能优化', desc: '避免过度使用大阴影，保证界面流畅。' },
+                      ].map(({ icon: Icon, title, desc }) => (
+                        <div key={title} className="rounded-lg border border-border p-4">
+                          <Icon size={17} className="mb-2 text-foreground" />
+                          <p className="mb-1 text-sm font-medium">{title}</p>
+                          <p className="text-xs leading-5 text-muted-foreground">{desc}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                 </div>
               </SectionCard>
             )}

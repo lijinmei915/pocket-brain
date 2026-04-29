@@ -121,6 +121,32 @@
     .status.error {
       color: #C2410C;
     }
+    .auth-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      background: #FFFFFF;
+      border: 1px solid #EAEAEA;
+      border-radius: 10px;
+      padding: 8px 10px;
+      color: #525252;
+      overflow: hidden;
+    }
+    .auth-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .auth-dot.on { background: #22C55E; }
+    .auth-dot.off { background: #D1D5DB; }
+    .auth-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .auth-text.muted { color: #A3A3A3; }
   </style>
 </head>
 <body>
@@ -128,6 +154,13 @@
     <div>
       <div class="title">Pocket Brain</div>
       <div class="subtitle">手动选择入口环境，不再自动切换。</div>
+    </div>
+
+    <div class="group">
+      <div class="label">登录状态</div>
+      <div class="auth-status" id="auth-status">
+        <span class="auth-text muted">检测中…</span>
+      </div>
     </div>
 
     <div class="group">

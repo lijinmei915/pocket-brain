@@ -35,9 +35,8 @@
 
     /* 阴影等级 */
     --shadow-none:    none;
-    --shadow-md:      0 12px 24px rgba(15, 23, 42, 0.10);
-    --shadow-md-hover: 0 16px 32px rgba(15, 23, 42, 0.14);
-    --shadow-lg:      0 24px 60px rgba(45, 65, 91, 0.12);
+    --shadow-md:      0 4px 12px rgba(0, 0, 0, 0.08);
+    --shadow-lg:      0 8px 24px rgba(0, 0, 0, 0.12);
     --focus-ring:     0 0 0 3px rgba(38, 38, 38, 0.2);
     --card-shadow:    none;
     --radius:         0.5rem;
