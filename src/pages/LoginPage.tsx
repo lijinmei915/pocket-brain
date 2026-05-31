@@ -21,6 +21,22 @@ function sanitizeRedirect(value: string | null) {
 function friendlyAuthError(message: string) {
   const text = String(message || '').toLowerCase()
 
+  if (
+    text.includes('redirect') ||
+    text.includes('not allowed') ||
+    text.includes('invalid redirect') ||
+    text.includes('redirect_to')
+  ) {
+    return '登录回跳地址未配置，请检查 Supabase Redirect URLs。'
+  }
+  if (
+    text.includes('email provider') ||
+    text.includes('smtp') ||
+    text.includes('send email') ||
+    text.includes('sending email')
+  ) {
+    return '邮件服务暂时不可用，请检查 Supabase 邮件配置。'
+  }
   if (text.includes('email link is invalid') || text.includes('expired')) {
     return '登录链接已失效，请重新发送。'
   }
@@ -34,17 +50,52 @@ function friendlyAuthError(message: string) {
   return '发送登录链接失败，请稍后再试。'
 }
 
+function isLocalHostName(hostname: string) {
+  return ['localhost', '127.0.0.1', '::1'].includes(hostname)
+}
+
 function getAppOrigin() {
+  const currentOrigin = window.location.origin
   const configuredUrl = String(import.meta.env.VITE_APP_URL || '').trim()
-  if (configuredUrl) {
-    try {
-      return new URL(configuredUrl).origin
-    } catch {
-      console.warn('[PB] Invalid VITE_APP_URL, fallback to current origin:', configuredUrl)
+  if (!configuredUrl) return currentOrigin
+
+  try {
+    const configured = new URL(configuredUrl)
+    const isCurrentLocal = isLocalHostName(window.location.hostname)
+    const isConfiguredLocal = isLocalHostName(configured.hostname)
+
+    if (isCurrentLocal || configured.host === window.location.host) {
+      return configured.origin
     }
+
+    if (!isConfiguredLocal) {
+      console.warn('[PB] VITE_APP_URL differs from current host, using current origin for login redirect:', {
+        configuredOrigin: configured.origin,
+        currentOrigin,
+      })
+    }
+  } catch {
+    console.warn('[PB] Invalid VITE_APP_URL, fallback to current origin:', configuredUrl)
   }
 
-  return window.location.origin
+  return currentOrigin
+}
+
+function logMagicLinkError(error: Error, redirectTo: string) {
+  console.error('[PB] send magic link failed:', {
+    message: error.message,
+    name: error.name,
+    redirectTo,
+  })
+}
+
+function buildLoginRedirectUrl(redirectTarget: string) {
+  const redirectUrl = new URL('/login', getAppOrigin())
+  if (redirectTarget && redirectTarget !== '/') {
+    redirectUrl.searchParams.set('redirect', redirectTarget)
+  }
+
+  return redirectUrl
 }
 
 function readCallbackError() {
@@ -99,14 +150,11 @@ export default function LoginPage() {
     setError('')
     setStatus('sending')
 
-    const redirectUrl = new URL('/login', getAppOrigin())
-    if (redirectTarget && redirectTarget !== '/') {
-      redirectUrl.searchParams.set('redirect', redirectTarget)
-    }
-
+    const redirectUrl = buildLoginRedirectUrl(redirectTarget)
     const { error: sendError } = await sendMagicLink(normalizedEmail, redirectUrl.toString())
 
     if (sendError) {
+      logMagicLinkError(sendError, redirectUrl.toString())
       setStatus('idle')
       setError(friendlyAuthError(sendError.message))
       return
