@@ -39,13 +39,24 @@ export async function getCurrentUserId() {
 }
 
 export async function sendMagicLink(email: string, redirectTo: string) {
-  return supabaseAuth.auth.signInWithOtp({
-    email,
-    options: {
-      shouldCreateUser: true,
-      emailRedirectTo: redirectTo,
-    },
-  })
+  try {
+    const response = await fetch('/api/send-magic-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, redirectTo }),
+    })
+    const payload = await response.json().catch(() => ({}))
+
+    if (!response.ok) {
+      const message = typeof payload?.error === 'string' ? payload.error : 'Failed to send magic link'
+      return { data: { user: null, session: null }, error: new Error(message) }
+    }
+
+    return { data: { user: null, session: null }, error: null }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return { data: { user: null, session: null }, error: new Error(message || 'Network error') }
+  }
 }
 
 export async function signOut() {

@@ -43,6 +43,13 @@ function friendlyAuthError(message: string) {
   if (text.includes('rate limit')) {
     return '发送太频繁了，请稍后再试。'
   }
+  if (
+    text.includes('failed to fetch') ||
+    text.includes('network') ||
+    text.includes('auth api unavailable')
+  ) {
+    return '登录服务连接失败，请刷新后再试。'
+  }
   if (text.includes('invalid email')) {
     return '请输入有效的邮箱地址。'
   }
