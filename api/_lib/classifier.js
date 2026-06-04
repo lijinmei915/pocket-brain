@@ -505,6 +505,45 @@ function buildPrompt({ url, title, note, sourceTag, categories, userTagLibrary }
   ].join('\n')
 }
 
+function buildFileSummaryPrompt({ fileName, mimeType, text, userTagLibrary }) {
+  return [
+    '你是 Pocket Brain 的资料解析助手。',
+    '任务：阅读用户上传的文件正文，生成适合进入个人知识库的标题、摘要和标签建议。',
+    '',
+    '必须遵守：',
+    '1. 只返回 JSON，不要输出 Markdown，不要解释。',
+    '2. title 用简体中文，控制在 40 字以内；如果原文件名已经清楚，可以保留或轻微优化。',
+    '3. summary 用简体中文，控制在 120 字以内，概括文件核心信息、结论、用途或可复用价值。',
+    '4. tags 最多 5 个，可使用的 type 只有 content / format。content 表示主题，format 表示文件形态，如 PDF、Word、Markdown、文档、代码、表格。',
+    '5. 标签生成前先参考用户已有标签库；语义相同或近似时，优先复用已有标签名。',
+    '6. 不要输出“资料”“文件”“上传文件”这类没有检索价值的泛化标签。',
+    '7. 如果正文信息不足，summary 写“暂无更多信息”，tags 只输出确定的格式标签。',
+    '',
+    '输入：',
+    JSON.stringify(
+      {
+        file_name: fileName || '',
+        mime_type: mimeType || '',
+        user_tag_library: Array.isArray(userTagLibrary) ? userTagLibrary : [],
+        text,
+      },
+      null,
+      2
+    ),
+    '',
+    '目标 JSON 结构：',
+    JSON.stringify(
+      {
+        title: '适合收藏卡片展示的标题',
+        summary: '文件核心内容摘要，120字内',
+        tags: [{ name: '产品设计', type: 'content' }, { name: 'PDF', type: 'format' }],
+      },
+      null,
+      2
+    ),
+  ].join('\n')
+}
+
 function extractJsonText(rawText) {
   const trimmed = rawText.trim()
 
@@ -529,6 +568,29 @@ function extractJsonText(rawText) {
 function normalizeSummary(summary, fallbackTitle) {
   const text = String(summary || fallbackTitle || '未提供摘要').replace(/\s+/g, ' ').trim()
   return text.length > 50 ? `${text.slice(0, 50).trim()}…` : text
+}
+
+function normalizeFileTitle(title, fallbackFileName) {
+  const fallback = String(fallbackFileName || '未命名资料')
+    .replace(/\.[^.]+$/, '')
+    .replace(/[-_]+/g, ' ')
+    .trim()
+  const text = String(title || fallback || '未命名资料').replace(/\s+/g, ' ').trim()
+  return text.length > 40 ? `${text.slice(0, 40).trim()}…` : text
+}
+
+function normalizeFileSummary(summary) {
+  const text = String(summary || '暂无更多信息').replace(/\s+/g, ' ').trim()
+  return text.length > 120 ? `${text.slice(0, 120).trim()}…` : text
+}
+
+function normalizeFileText(text) {
+  return String(text || '')
+    .replace(/\u0000/g, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+    .slice(0, 28000)
 }
 
 function normalizeConfirmedTag(tag) {
@@ -776,6 +838,31 @@ export async function classifyBookmark(input, options = {}) {
     confidence,
     tags: normalizeTags(parsed?.tags, sourceTag, userTagLibrary),
     summary: normalizeSummary(parsed?.summary, input.title),
+  }
+}
+
+export async function summarizeFileContent(input, options = {}) {
+  const userTagLibrary = options.userTagLibrary || (await fetchUserTagLibrary(options.userId))
+  const text = normalizeFileText(input.text)
+
+  if (!text) {
+    throw new Error('No readable text extracted from file')
+  }
+
+  const prompt = buildFileSummaryPrompt({
+    fileName: input.fileName,
+    mimeType: input.mimeType,
+    text,
+    userTagLibrary,
+  })
+
+  const rawText = await callQwen(prompt)
+  const parsed = JSON.parse(extractJsonText(rawText))
+
+  return {
+    title: normalizeFileTitle(parsed?.title, input.fileName),
+    summary: normalizeFileSummary(parsed?.summary),
+    tags: normalizeTags(parsed?.tags, null, userTagLibrary),
   }
 }
 

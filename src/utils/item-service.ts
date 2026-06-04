@@ -7,7 +7,7 @@ import {
   replaceUserTagsForItem,
   updateItem as updateItemRecord,
 } from '@/utils/supabase'
-import { getCurrentUserId } from '@/utils/auth'
+import { getCurrentUserId, isDevAuthBypassEnabled } from '@/utils/auth'
 
 interface ClassificationPreview {
   type?: string
@@ -15,6 +15,21 @@ interface ClassificationPreview {
   confidence?: 'high' | 'medium' | 'low'
   summary?: string
   tags?: Array<{ name: string; type: ItemTag['type'] }>
+}
+
+interface FileSummaryPreview {
+  title?: string
+  summary?: string
+  tags?: Array<{ name: string; type: ItemTag['type'] }>
+  textLength?: number
+}
+
+export interface KnowledgeDraft {
+  title: string
+  summary: string
+  categoryId?: string | null
+  confidence?: 'high' | 'medium' | 'low' | null
+  tags: ConfirmedTagDraft[]
 }
 
 export interface ConfirmedTagDraft {
@@ -79,7 +94,7 @@ async function assertUrlNotDuplicated(url: string | null | undefined, currentIte
   const normalizedUrl = typeof url === 'string' ? normalizeComparableUrl(url) : ''
   if (!normalizedUrl) return
 
-  const existingItem = await fetchItemByUrl(normalizedUrl)
+  const existingItem = await fetchItemByUrl(normalizedUrl) as BookmarkItem | null
   if (!existingItem?.id) return
   if (currentItemId && existingItem.id === currentItemId) return
 
@@ -90,6 +105,18 @@ export async function classifyPreview(
   input: { url: string; title?: string; note?: string },
   options: { signal?: AbortSignal } = {}
 ) {
+  if (isDevAuthBypassEnabled()) {
+    return {
+      type: 'article',
+      confidence: 'medium' as const,
+      summary: `本地 Mock 草稿：${(input.note || input.title || input.url).slice(0, 80)}`,
+      tags: [
+        { name: '待确认', type: 'status' as ItemTag['type'] },
+        { name: '网页', type: 'format' as ItemTag['type'] },
+      ],
+    }
+  }
+
   try {
     const userId = await getCurrentUserId()
     const response = await fetch('/api/classify', {
@@ -121,13 +148,169 @@ export async function classifyPreview(
   }
 }
 
+export async function summarizeFilePreview(
+  input: { fileName: string; mimeType?: string; fileDataBase64?: string; fileUrl?: string },
+  options: { signal?: AbortSignal } = {}
+) {
+  if (isDevAuthBypassEnabled()) {
+    return {
+      title: input.fileName || '本地资料',
+      summary: `本地 Mock 草稿：${input.fileName || '这份资料'} 已保存为原材料，可确认后入库。`,
+      tags: [
+        { name: '待确认', type: 'status' as ItemTag['type'] },
+        { name: input.mimeType === 'text/plain' ? '灵感' : '资料', type: 'format' as ItemTag['type'] },
+      ],
+      textLength: 0,
+    }
+  }
+
+  const userId = await getCurrentUserId()
+  const response = await fetch('/api/summarize-file', {
+    method: 'POST',
+    signal: options.signal,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      fileName: input.fileName,
+      mimeType: input.mimeType || '',
+      fileDataBase64: input.fileDataBase64 || undefined,
+      fileUrl: input.fileUrl || undefined,
+      userId,
+    }),
+  })
+
+  if (!response.ok) {
+    let message = '加工暂时失败，请稍后再试'
+    try {
+      const data = await response.json()
+      if (typeof data?.error === 'string') message = data.error
+    } catch {
+      // keep fallback message
+    }
+    throw new Error(message)
+  }
+
+  return (await response.json()) as FileSummaryPreview
+}
+
+function encodeTextAsBase64(text: string) {
+  const bytes = new TextEncoder().encode(text)
+  let binary = ''
+  bytes.forEach(byte => {
+    binary += String.fromCharCode(byte)
+  })
+  return btoa(binary)
+}
+
+function getFileNameFromItem(item: BookmarkItem) {
+  if (item.title?.trim()) return item.title.trim()
+
+  try {
+    const parsed = new URL(item.url || '')
+    const lastSegment = decodeURIComponent(parsed.pathname.split('/').filter(Boolean).pop() || '')
+    return lastSegment || '上传资料'
+  } catch {
+    return '上传资料'
+  }
+}
+
+function toAiDraftTags(tags?: Array<{ name: string; type: ItemTag['type'] }>): ConfirmedTagDraft[] {
+  return Array.isArray(tags)
+    ? tags.map(tag => ({
+        name: tag.name,
+        type: tag.type,
+        appliedBy: 'ai' as const,
+      }))
+    : []
+}
+
+function getLocalMockFormatTag(item: BookmarkItem): ConfirmedTagDraft {
+  if (item.type === 'file') return { name: '资料', type: 'format', appliedBy: 'ai' }
+  if (item.type === 'note' || !item.url) return { name: '灵感', type: 'format', appliedBy: 'ai' }
+  return { name: '网页', type: 'format', appliedBy: 'ai' }
+}
+
+function generateLocalMockKnowledgeDraft(item: BookmarkItem): KnowledgeDraft {
+  const title = item.title?.trim() || getFileNameFromItem(item) || '未命名内容'
+  const sourceText = item.note?.trim() || item.summary?.trim() || item.url || '这条原材料'
+  return {
+    title,
+    summary: `本地 Mock 草稿：${sourceText.slice(0, 80)}${sourceText.length > 80 ? '…' : ''}`,
+    categoryId: item.categoryId ?? null,
+    confidence: 'medium',
+    tags: [
+      { name: '待确认', type: 'status', appliedBy: 'ai' },
+      getLocalMockFormatTag(item),
+    ],
+  }
+}
+
+function toStoredItemTags(tags: ConfirmedTagDraft[]): ItemTag[] {
+  return tags.map((tag, index) => ({
+    id: `local-confirmed-${index}-${tag.type}-${tag.name}`,
+    name: tag.name,
+    type: tag.type,
+    appliedBy: tag.appliedBy,
+  }))
+}
+
+export async function generateKnowledgeDraft(item: BookmarkItem): Promise<KnowledgeDraft> {
+  if (isDevAuthBypassEnabled()) {
+    return generateLocalMockKnowledgeDraft(item)
+  }
+
+  if (item.type === 'file') {
+    const result = await summarizeFilePreview({
+      fileName: getFileNameFromItem(item),
+      fileUrl: item.url || '',
+    })
+    return {
+      title: result.title?.trim() || item.title || '未命名资料',
+      summary: result.summary?.trim() || '',
+      tags: toAiDraftTags(result.tags),
+    }
+  }
+
+  if (item.type === 'note' || !item.url) {
+    const text = item.note || item.summary || item.title || ''
+    const result = await summarizeFilePreview({
+      fileName: `${item.title || '灵感记录'}.txt`,
+      mimeType: 'text/plain',
+      fileDataBase64: encodeTextAsBase64(text),
+    })
+    return {
+      title: result.title?.trim() || item.title || '灵感记录',
+      summary: result.summary?.trim() || '',
+      tags: toAiDraftTags(result.tags),
+    }
+  }
+
+  const result = await classifyPreview({
+    url: item.url,
+    title: item.title,
+    note: item.note,
+  })
+  if (!result) {
+    throw new Error('加工暂时失败，请稍后再试')
+  }
+
+  return {
+    title: item.title || item.url || '未命名收藏',
+    summary: result?.summary?.trim() || '',
+    categoryId: result?.category_id ?? null,
+    confidence: result?.confidence ?? null,
+    tags: toAiDraftTags(result?.tags),
+  }
+}
+
 async function resolveFinalItem(item: BookmarkItem, classification: Record<string, unknown> | null) {
   if (!classification) {
     return item
   }
 
-  const refreshed = item.id ? await fetchItem(item.id) : null
-  return refreshed || mergeClassification(item, classification)
+  const refreshed = item.id ? (await fetchItem(item.id)) as BookmarkItem | null : null
+  return mergeClassification(refreshed || item, classification)
 }
 
 async function resolveFinalItemWithUserTagFallback(
@@ -139,8 +322,9 @@ async function resolveFinalItemWithUserTagFallback(
     return resolveFinalItem(item, classification)
   }
 
-  const desiredUserTags = (Array.isArray(confirmedTags) ? confirmedTags : []).filter(tag => tag.appliedBy === 'user')
-  if (!item.id || desiredUserTags.length === 0) {
+  const hasExplicitUserTags = Array.isArray(confirmedTags)
+  const desiredUserTags = (hasExplicitUserTags ? confirmedTags : []).filter(tag => tag.appliedBy === 'user')
+  if (!item.id || !hasExplicitUserTags) {
     return item
   }
 
@@ -255,30 +439,32 @@ export async function createItemWithClassification(item: Partial<BookmarkItem>) 
   const created = await createItemRecord({
     ...item,
     url: normalizedUrl,
-  })
-  const hasConfirmedFields =
+  }) as BookmarkItem
+  const hasKnowledgeFields =
     item.summary !== undefined ||
     item.categoryId !== undefined ||
-    item.confidence !== undefined ||
-    Array.isArray(item.tags)
+    item.confidence !== undefined
+  const confirmedTags = Array.isArray(item.tags) ? (item.tags as ConfirmedTagDraft[]) : undefined
 
-  if (!shouldClassify(created) || !created.id) {
+  if (!created.id) {
     return created
   }
 
-  const classified = hasConfirmedFields
-    ? await applyConfirmedClassification(created, {
-        summary: item.summary,
-        categoryId: item.categoryId ?? null,
-        confidence: item.confidence ?? null,
-        tags: Array.isArray(item.tags) ? (item.tags as ConfirmedTagDraft[]) : [],
-      })
-    : await applyClassification(created)
-  return resolveFinalItemWithUserTagFallback(
-    created,
-    classified,
-    Array.isArray(item.tags) ? (item.tags as ConfirmedTagDraft[]) : undefined
-  )
+  if (isDevAuthBypassEnabled()) {
+    return created
+  }
+
+  if (!hasKnowledgeFields) {
+    return resolveFinalItemWithUserTagFallback(created, null, confirmedTags)
+  }
+
+  const classified = await applyConfirmedClassification(created, {
+    summary: item.summary,
+    categoryId: item.categoryId ?? null,
+    confidence: item.confidence ?? null,
+    tags: confirmedTags || [],
+  })
+  return resolveFinalItemWithUserTagFallback(created, classified, confirmedTags)
 }
 
 export async function updateItemWithClassification(id: string, changes: Partial<BookmarkItem>) {
@@ -289,32 +475,62 @@ export async function updateItemWithClassification(id: string, changes: Partial<
   const updated = await updateItemRecord(id, {
     ...changes,
     ...(changes.url !== undefined ? { url: normalizedUrl } : {}),
-  })
-  const hasConfirmedFields =
+  }) as BookmarkItem
+  const hasKnowledgeFields =
     changes.summary !== undefined ||
     changes.categoryId !== undefined ||
-    changes.confidence !== undefined ||
-    Array.isArray(changes.tags)
+    changes.confidence !== undefined
+  const confirmedTags = Array.isArray(changes.tags) ? (changes.tags as ConfirmedTagDraft[]) : undefined
 
-  if (!updated.id || !shouldClassify(updated) || !shouldReclassify(changes)) {
+  if (!updated.id || !shouldReclassify(changes)) {
     return updated
   }
 
-  const classified = hasConfirmedFields
-    ? await applyConfirmedClassification(updated, {
-        summary: changes.summary,
-        categoryId: changes.categoryId ?? null,
-        confidence: changes.confidence ?? null,
-        tags: Array.isArray(changes.tags) ? (changes.tags as ConfirmedTagDraft[]) : [],
-      })
-    : await applyClassification(updated)
-  return resolveFinalItemWithUserTagFallback(
-    updated,
-    classified,
-    Array.isArray(changes.tags) ? (changes.tags as ConfirmedTagDraft[]) : undefined
-  )
+  if (isDevAuthBypassEnabled()) {
+    return updated
+  }
+
+  if (!hasKnowledgeFields) {
+    return resolveFinalItemWithUserTagFallback(updated, null, confirmedTags)
+  }
+
+  const classified = await applyConfirmedClassification(updated, {
+    summary: changes.summary,
+    categoryId: changes.categoryId ?? null,
+    confidence: changes.confidence ?? null,
+    tags: confirmedTags || [],
+  })
+  return resolveFinalItemWithUserTagFallback(updated, classified, confirmedTags)
+}
+
+export async function confirmKnowledgeEntry(item: BookmarkItem, draft: KnowledgeDraft) {
+  if (!item.id) throw new Error('Missing item id')
+
+  if (isDevAuthBypassEnabled()) {
+    return updateItemRecord(item.id, {
+      title: draft.title || item.title,
+      summary: draft.summary,
+      categoryId: draft.categoryId ?? item.categoryId ?? null,
+      confidence: draft.confidence ?? item.confidence ?? null,
+      aiStatus: 'completed',
+      tags: toStoredItemTags(draft.tags),
+    } as Partial<BookmarkItem>) as Promise<BookmarkItem>
+  }
+
+  const updated = await updateItemRecord(item.id, {
+    title: draft.title || item.title,
+  }) as BookmarkItem
+
+  const classified = await applyConfirmedClassification(updated, {
+    summary: draft.summary,
+    categoryId: draft.categoryId ?? item.categoryId ?? null,
+    confidence: draft.confidence ?? item.confidence ?? null,
+    tags: draft.tags,
+  })
+
+  return resolveFinalItemWithUserTagFallback(updated, classified, draft.tags)
 }
 
 export async function refreshItemAfterClassification(id: string) {
-  return fetchItem(id)
+  return fetchItem(id) as Promise<BookmarkItem | null>
 }

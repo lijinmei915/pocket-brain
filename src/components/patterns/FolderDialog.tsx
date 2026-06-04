@@ -6,18 +6,30 @@ import { DialogBody, DialogFooter, DialogShell } from '@/components/ui/DialogShe
 // mode: 'create' | 'rename'
 export default function FolderDialog({ open, onOpenChange, mode, currentName, onConfirm }) {
   const [name, setName] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
   const inputId = 'folder-name'
 
   useEffect(() => {
     if (open) {
       setName(mode === 'rename' ? (currentName || '') : '')
+      setSaving(false)
+      setError('')
     }
   }, [open, mode, currentName])
 
-  function handleSubmit() {
-    if (name.trim()) {
-      onConfirm(name.trim())
+  async function handleSubmit() {
+    if (!name.trim() || saving) return
+
+    setSaving(true)
+    setError('')
+    try {
+      await onConfirm(name.trim())
       onOpenChange(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '保存文件夹失败，请稍后重试')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -41,13 +53,15 @@ export default function FolderDialog({ open, onOpenChange, mode, currentName, on
             placeholder="文件夹名称"
             autoComplete="off"
             autoFocus
-            onKeyDown={e => { if (e.key === 'Enter') handleSubmit() }}
+            disabled={saving}
+            onKeyDown={e => { if (e.key === 'Enter') void handleSubmit() }}
           />
+          {error && <p className="text-xs text-destructive">{error}</p>}
         </DialogBody>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>取消</Button>
-          <Button onClick={handleSubmit} disabled={!name.trim()}>
-            {mode === 'rename' ? '确认' : '创建'}
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>取消</Button>
+          <Button onClick={() => void handleSubmit()} disabled={!name.trim() || saving}>
+            {saving ? '保存中…' : mode === 'rename' ? '确认' : '创建'}
           </Button>
         </DialogFooter>
     </DialogShell>

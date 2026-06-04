@@ -10,10 +10,13 @@ import LoginPage from '@/pages/LoginPage'
 import Sidebar from '@/components/layout/Sidebar'
 import ItemGrid from '@/components/patterns/ItemGrid'
 import AddItemDialog from '@/components/patterns/AddItemDialog'
+import KnowledgeProcessDialog from '@/components/patterns/KnowledgeProcessDialog'
 import DesignPanel from '@/components/patterns/DesignPanel'
+import GetAppDialog from '@/components/patterns/GetAppDialog'
 import { fetchItems, fetchFolders, deleteItem, updateItem, createFolder, renameFolder, deleteFolder } from '@/utils/supabase'
-import { createItemWithClassification, updateItemWithClassification } from '@/utils/item-service'
+import { confirmKnowledgeEntry, createItemWithClassification, updateItemWithClassification } from '@/utils/item-service'
 import { useAuth } from '@/hooks/use-auth'
+import { isDevAuthBypassEnabled } from '@/utils/auth'
 
 function guessType(url) {
   const u = (url || '').toLowerCase()
@@ -25,12 +28,15 @@ function guessType(url) {
 
 export default function App() {
   const { user, loading: authLoading, signOut } = useAuth()
+  const devAuthBypass = isDevAuthBypassEnabled()
   const [items, setItems] = useState([])
   const [folders, setFolders] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedFolder, setSelectedFolder] = useState('inbox')
   const [search, setSearch] = useState('')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [getAppOpen, setGetAppOpen] = useState(false)
+  const [knowledgeItem, setKnowledgeItem] = useState(null)
 
   // Dialog state: null = closed, undefined = new, item object = edit
   const [dialogItem, setDialogItem] = useState(null)
@@ -39,7 +45,7 @@ export default function App() {
 
   useEffect(() => {
     if (authLoading) return
-    if (!user) {
+    if (!user && !devAuthBypass) {
       setItems([])
       setFolders([])
       setLoading(false)
@@ -56,11 +62,11 @@ export default function App() {
         console.error('[PB] load error:', err)
       })
       .finally(() => setLoading(false))
-  }, [authLoading, user?.id])
+  }, [authLoading, user?.id, devAuthBypass])
 
   // Chrome extension autosave via URL params
   useEffect(() => {
-    if (!user) return
+    if (!user && !devAuthBypass) return
     const params = new URLSearchParams(window.location.search)
     if (params.get('autosave') === '1') {
       const url = params.get('url') || ''
@@ -75,7 +81,7 @@ export default function App() {
         window.history.replaceState({}, '', window.location.pathname)
       }
     }
-  }, [user?.id])
+  }, [user?.id, devAuthBypass])
 
   const handleSignOut = useCallback(async () => {
     const { error } = await signOut()
@@ -87,6 +93,7 @@ export default function App() {
   const openAdd = useCallback(() => setDialogItem({}), [])
   const openEdit = useCallback((item) => setDialogItem(item), [])
   const closeDialog = useCallback(() => setDialogItem(null), [])
+  const closeKnowledgeDialog = useCallback(() => setKnowledgeItem(null), [])
 
   const handleSave = useCallback(async (data) => {
     try {
@@ -115,6 +122,11 @@ export default function App() {
     }
   }, [])
 
+  const handleConfirmKnowledge = useCallback(async (item, draft) => {
+    const updated = await confirmKnowledgeEntry(item, draft)
+    setItems(prev => prev.map(i => i.id === updated.id ? updated : i))
+  }, [])
+
   const handleMoveItem = useCallback(async (id, newFolderId) => {
     // 乐观更新：先改 UI，再写库
     setItems(prev => prev.map(i => i.id === id ? { ...i, folderId: newFolderId } : i))
@@ -141,8 +153,10 @@ export default function App() {
     try {
       const folder = await createFolder(name, parentId)
       setFolders(prev => [...prev, folder])
+      return folder
     } catch (err) {
       console.error('[PB] create folder error:', err)
+      throw err
     }
   }, [])
 
@@ -150,8 +164,10 @@ export default function App() {
     try {
       const folder = await renameFolder(id, name)
       setFolders(prev => prev.map(f => f.id === id ? folder : f))
+      return folder
     } catch (err) {
       console.error('[PB] rename folder error:', err)
+      throw err
     }
   }, [])
 
@@ -193,7 +209,8 @@ export default function App() {
           search={search}
           onSearch={setSearch}
           onAdd={openAdd}
-          currentUserEmail={user?.email ?? ''}
+          onGetApp={() => setGetAppOpen(true)}
+          currentUserEmail={user?.email ?? (devAuthBypass ? 'local@pocketbrain.dev' : '')}
           onSignOut={handleSignOut}
           mobileOpen={mobileMenuOpen}
           onMobileClose={() => setMobileMenuOpen(false)}
@@ -208,7 +225,9 @@ export default function App() {
             onMove={handleMoveItem}
             onDelete={handleDeleteItem}
             onAdd={openAdd}
+            onGetApp={() => setGetAppOpen(true)}
             onEdit={openEdit}
+            onProcessKnowledge={setKnowledgeItem}
             onMobileMenuOpen={() => setMobileMenuOpen(true)}
           />
         </main>
@@ -217,9 +236,16 @@ export default function App() {
           onOpenChange={open => { if (!open) closeDialog() }}
           folders={folders}
           onSave={handleSave}
-          defaultFolderId={selectedFolder !== 'all' && selectedFolder !== 'inbox' ? selectedFolder : null}
+          defaultFolderId={folders.some(folder => folder.id === selectedFolder) ? selectedFolder : null}
           editItem={editItem}
         />
+        <KnowledgeProcessDialog
+          open={!!knowledgeItem}
+          item={knowledgeItem}
+          onOpenChange={open => { if (!open) closeKnowledgeDialog() }}
+          onConfirm={handleConfirmKnowledge}
+        />
+        <GetAppDialog open={getAppOpen} onOpenChange={setGetAppOpen} />
         <DesignPanel />
       </div>
   )
@@ -241,7 +267,7 @@ export default function App() {
 function RequireAuth({ children, loading, user }) {
   const location = useLocation()
 
-  if (import.meta.env.VITE_DEV_BYPASS_AUTH === 'true') return children
+  if (isDevAuthBypassEnabled()) return children
 
   if (loading) {
     return (

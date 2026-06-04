@@ -23,7 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const debug = (payload.debug === true || payload.debug === 'true' || payload.debug === '1') && canExposeClassifierDebug()
   const confirmed = payload.confirmed && typeof payload.confirmed === 'object' ? payload.confirmed : null
 
-  if (!url) {
+  if (!url && !(apply && confirmed)) {
     return res.status(400).json({ error: 'Missing or invalid url parameter' })
   }
 

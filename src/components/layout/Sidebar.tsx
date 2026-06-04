@@ -1,10 +1,9 @@
 import { useState } from 'react'
-import GetAppDialog from '@/components/patterns/GetAppDialog'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
-  Inbox, BookOpen, Search, FolderOpen, Folder,
+  Inbox, BookOpen, Search, Folder,
   Pencil, Trash2, FolderPlus, X, Download
 } from 'lucide-react'
 import { MoreButton } from '@/components/ui/MoreButton'
@@ -30,17 +29,18 @@ function FolderItem({ folder, folders, items, selected, depth, onSelect, onRenam
       <div
         className={cn(
           'group flex items-center gap-1.5 rounded-md px-2 py-1.5 cursor-pointer text-sm transition-colors',
-          isSelected ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted text-foreground'
+          isSelected ? 'component-sidebar-active' : 'hover:bg-muted text-foreground'
         )}
         style={{ paddingLeft: `${8 + depth * 16}px` }}
         onClick={() => onSelect(folder.id)}
       >
-        {isSelected
-          ? <FolderOpen size={14} className="shrink-0" />
-          : <Folder size={14} className="shrink-0 text-muted-foreground" />
-        }
+        <Folder size={14} className="shrink-0 text-muted-foreground" />
         <span className="flex-1 truncate">{folder.name}</span>
-        {count > 0 && <span className="text-xs text-muted-foreground">{count}</span>}
+        {(isSelected || count > 0) && (
+          <span className="rounded-full bg-muted-foreground/10 px-1.5 py-0.5 text-[11px] leading-none text-muted-foreground">
+            {count}
+          </span>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
             <MoreButton hideUntilHover />
@@ -76,7 +76,7 @@ function FolderItem({ folder, folders, items, selected, depth, onSelect, onRenam
   )
 }
 
-export default function Sidebar({ folders, items, selected, onSelect, onCreateFolder, onRenameFolder, onDeleteFolder, search, onSearch, onAdd, currentUserEmail, onSignOut, mobileOpen, onMobileClose }) {
+export default function Sidebar({ folders, items, selected, onSelect, onCreateFolder, onRenameFolder, onDeleteFolder, search, onSearch, onAdd, onGetApp, currentUserEmail, onSignOut, mobileOpen, onMobileClose }) {
   // Dialog states
   const [folderDialogOpen, setFolderDialogOpen] = useState(false)
   const [folderDialogMode, setFolderDialogMode] = useState('create')
@@ -86,7 +86,6 @@ export default function Sidebar({ folders, items, selected, onSelect, onCreateFo
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteTargetId, setDeleteTargetId] = useState(null)
-  const [getAppOpen, setGetAppOpen] = useState(false)
 
   const inboxCount = items.filter(i => !i.folderId).length
   const allCount = items.length
@@ -141,7 +140,8 @@ export default function Sidebar({ folders, items, selected, onSelect, onCreateFo
         {/* Mobile close button */}
         <button
           onClick={onMobileClose}
-          className="ml-auto p-1 rounded hover:bg-muted md:hidden"
+          className="ml-auto rounded p-1 hover:bg-muted md:hidden"
+          aria-label="关闭菜单"
         >
           <X size={16} />
         </button>
@@ -155,7 +155,7 @@ export default function Sidebar({ folders, items, selected, onSelect, onCreateFo
             value={search}
             onChange={e => onSearch(e.target.value)}
             placeholder="搜索…"
-            className="pl-7 h-8 text-sm"
+            className="h-8 bg-card pl-7 text-sm"
           />
         </div>
       </div>
@@ -174,6 +174,7 @@ export default function Sidebar({ folders, items, selected, onSelect, onCreateFo
             className="p-0.5 rounded hover:bg-muted text-muted-foreground"
             onClick={() => openCreateFolder(null)}
             title="新建文件夹"
+            aria-label="新建文件夹"
           >
             <FolderPlus size={13} />
           </button>
@@ -210,7 +211,7 @@ export default function Sidebar({ folders, items, selected, onSelect, onCreateFo
       )}
       <div className="px-4 py-3 border-t">
         <button
-          onClick={() => setGetAppOpen(true)}
+          onClick={onGetApp}
           className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
         >
           <Download size={11} />获取应用
@@ -218,7 +219,6 @@ export default function Sidebar({ folders, items, selected, onSelect, onCreateFo
       </div>
 
       {/* Dialogs */}
-      <GetAppDialog open={getAppOpen} onOpenChange={setGetAppOpen} />
       <FolderDialog
         open={folderDialogOpen}
         onOpenChange={setFolderDialogOpen}
@@ -263,12 +263,16 @@ function NavItem({ icon: Icon, label, count, active, onClick }) {
       onClick={onClick}
       className={cn(
         'w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors text-left',
-        active ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted text-foreground'
+        active ? 'component-sidebar-active' : 'hover:bg-muted text-foreground'
       )}
     >
-      <Icon size={14} className={active ? 'text-primary' : 'text-muted-foreground'} />
+      <Icon size={14} className="text-muted-foreground" />
       <span className="flex-1">{label}</span>
-      {count > 0 && <span className="text-xs text-muted-foreground">{count}</span>}
+      {(active || count > 0) && (
+        <span className="rounded-full bg-muted-foreground/10 px-1.5 py-0.5 text-[11px] leading-none text-muted-foreground">
+          {count}
+        </span>
+      )}
     </button>
   )
 }

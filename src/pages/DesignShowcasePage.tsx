@@ -29,6 +29,12 @@ import GetAppDialog from '@/components/patterns/GetAppDialog'
 import EditorBubbleMenu from '@/components/patterns/EditorBubbleMenu'
 import DesignPanel from '@/components/patterns/DesignPanel'
 import { Logo } from '@/components/ui/Logo'
+import {
+  designNavGroups as navGroups,
+  designSectionDescriptions as sectionDescriptions,
+  designSections as sections,
+} from '@/design/registry'
+import { DESIGN_TOKENS, type DesignColorToken } from '@/design/tokens'
 
 function CopyButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false)
@@ -45,273 +51,6 @@ function CopyButton({ value }: { value: string }) {
       {copied ? <Check size={13} className="text-green-600" /> : <Copy size={13} />}
     </button>
   )
-}
-
-const navGroups = [
-  {
-    id: 'overview',
-    label: '总览',
-    items: [
-      {
-        id: 'overview',
-        title: 'Overview',
-        label: '全局规范',
-        doc: 'docs/DESIGN_STANDARDS.md',
-      },
-    ],
-  },
-  {
-    id: 'tokens',
-    label: 'Tokens',
-    items: [
-      {
-        id: 'color-tokens',
-        title: 'Color',
-        label: '颜色',
-        doc: 'docs/design/tokens/color.md',
-      },
-      {
-        id: 'shadow-tokens',
-        title: 'Shadow',
-        label: '阴影',
-        doc: 'docs/design/tokens/shadow.md',
-      },
-    ],
-  },
-  {
-    id: 'layout-group',
-    label: '布局',
-    items: [
-      {
-        id: 'layout',
-        title: 'Layout',
-        label: '布局',
-        doc: 'docs/design/layout.md',
-      },
-      {
-        id: 'spacing-tokens',
-        title: 'Space',
-        label: '间距',
-        doc: 'docs/design/tokens/space.md',
-      },
-      {
-        id: 'divider',
-        title: 'Divider',
-        label: '分割线',
-        doc: 'docs/design/layout.md',
-      },
-    ],
-  },
-  {
-    id: 'primitive',
-    label: '基础组件',
-    items: [
-      {
-        id: 'button',
-        title: 'Button',
-        label: '按钮',
-        doc: 'docs/design/buttons.md',
-      },
-      {
-        id: 'tag-chip',
-        title: 'TagChip',
-        label: '标签',
-        doc: 'docs/design/tag-chip.md',
-      },
-      {
-        id: 'tabs',
-        title: 'Tabs',
-        label: '切换栏',
-        doc: 'docs/design/tabs.md',
-      },
-    ],
-  },
-  {
-    id: 'business-pattern',
-    label: '业务组件',
-    items: [
-      {
-        id: 'dialog-shell',
-        title: 'DialogShell',
-        label: '弹窗结构',
-        doc: 'docs/design/dialog-shell.md',
-      },
-      {
-        id: 'panels',
-        title: 'Panels',
-        label: '面板',
-        doc: 'docs/design/panels.md',
-      },
-      {
-        id: 'sidebar',
-        title: 'Sidebar',
-        label: '侧栏',
-        doc: 'docs/design/sidebar.md',
-      },
-      {
-        id: 'field-patterns',
-        title: 'FieldPatterns',
-        label: '字段总则',
-        doc: 'docs/design/field-patterns.md',
-      },
-      {
-        id: 'input',
-        title: 'FormField',
-        label: '表单字段',
-        doc: 'docs/design/form-field.md',
-      },
-      {
-        id: 'more-button',
-        title: 'MoreButton',
-        label: '更多按钮',
-        doc: 'docs/design/more-button.md',
-      },
-      {
-        id: 'save-form',
-        title: 'SaveForm',
-        label: '保存表单',
-        doc: 'docs/design/save-form.md',
-      },
-      {
-        id: 'item-grid',
-        title: 'ItemGrid',
-        label: '内容列表',
-        doc: 'docs/design/card-pattern.md',
-      },
-      {
-        id: 'link-field',
-        title: 'LinkField',
-        label: '链接字段',
-        doc: 'docs/design/link-field.md',
-      },
-      {
-        id: 'title-field',
-        title: 'TitleField',
-        label: '标题字段',
-        doc: 'docs/design/title-field.md',
-      },
-      {
-        id: 'folder-select-field',
-        title: 'FolderSelectField',
-        label: '文件夹字段',
-        doc: 'docs/design/folder-select-field.md',
-      },
-      {
-        id: 'note-field',
-        title: 'NoteField',
-        label: '备注字段',
-        doc: 'docs/design/note-field.md',
-      },
-      {
-        id: 'tag-field',
-        title: 'TagField',
-        label: '标签字段',
-        doc: 'docs/design/tag-field.md',
-      },
-      {
-        id: 'content-type-tabs',
-        title: 'ContentTypeTabs',
-        label: '内容类型切换',
-        doc: 'docs/design/content-type-tabs.md',
-      },
-      {
-        id: 'dialog-actions',
-        title: 'DialogActions',
-        label: '弹窗操作',
-        doc: 'docs/design/dialog-actions.md',
-      },
-      {
-        id: 'get-app-dialog',
-        title: 'GetAppDialog',
-        label: '获取应用弹窗',
-        doc: 'docs/design/get-app-dialog.md',
-      },
-      {
-        id: 'editor-bubble-menu',
-        title: 'EditorBubbleMenu',
-        label: '编辑浮动工具栏',
-        doc: 'docs/design/editor-bubble-menu.md',
-      },
-      {
-        id: 'design-panel',
-        title: 'DesignPanel',
-        label: '设计调试面板',
-        doc: 'docs/design/design-panel.md',
-      },
-    ],
-  },
-  {
-    id: 'system-rules',
-    label: '系统规则',
-    items: [
-      {
-        id: 'ai-actions',
-        title: 'AIActions',
-        label: 'AI 交互',
-        doc: 'docs/design/ai-actions.md',
-      },
-      {
-        id: 'tags-guide',
-        title: 'Tags',
-        label: '标签系统',
-        doc: 'docs/design/tags.md',
-      },
-      {
-        id: 'dialogs',
-        title: 'DialogFamily',
-        label: '弹窗家族',
-        doc: 'docs/design/dialog-family.md',
-      },
-    ],
-  },
-  {
-    id: 'page-group',
-    label: '页面',
-    items: [
-      {
-        id: 'login',
-        title: 'Login',
-        label: '登录',
-        doc: 'docs/design/login.md',
-      },
-    ],
-  },
-] as const
-
-const sections = navGroups.flatMap(group => group.items)
-
-const sectionDescriptions: Record<string, string> = {
-  overview: '设计规范总入口、阅读顺序和统一写法都从这里开始看。',
-  'color-tokens': '先看颜色本身，再看它如何映射成页面和组件语义色。',
-  'shadow-tokens': '定义组件和容器如何用阴影表达层级。',
-  layout: '协助定义 Pocket Brain 的页面级排版、间距节奏和容器层级。',
-  'spacing-tokens': '统一说明间距等级、常用 utility class 和使用顺序。',
-  divider: '定义分割线在信息层级里的位置、轻重和与上下内容的节奏。',
-  button: 'Button 是 Pocket Brain 的基础动作原语，直接跟随 shadcn Button。',
-  'tag-chip': 'TagChip 负责标签原语的展示、删除和状态表达。',
-  tabs: 'Tabs 负责同组内容的切换，不表达业务流程本身。',
-  'dialog-shell': '弹窗结构规则讲的是壳层、头部、主体和操作区的节奏。',
-  panels: '面板规则讲的是展开、关闭和同组面板的一致性。',
-  sidebar: 'Sidebar 规则讲的是导航、层级和折叠节奏。',
-  'field-patterns': '字段总则负责标题、控件、状态和消息的组合规则。',
-  input: '表单字段规则讲的是字段状态、消息和输入框的关系。',
-  'more-button': 'MoreButton 负责局部菜单触发，不承担主操作。',
-  'save-form': 'SaveForm 负责把多个字段组合成完整保存体验。',
-  'item-grid': 'ItemGrid 负责列表密度、信息顺序和操作分布。',
-  'link-field': 'LinkField 负责链接输入、校验和重复处理。',
-  'title-field': 'TitleField 负责主标题输入和层级。',
-  'folder-select-field': 'FolderSelectField 负责文件夹选择的结构和状态。',
-  'note-field': 'NoteField 负责备注输入与 AI 总结协作。',
-  'tag-field': 'TagField 负责已选标签、推荐标签和手动输入。',
-  'content-type-tabs': 'ContentTypeTabs 负责内容类型切换，不负责正文布局。',
-  'dialog-actions': 'DialogActions 负责主次按钮排序和操作区节奏。',
-  'get-app-dialog': 'GetAppDialog 负责获取应用路径和安装选择。',
-  'editor-bubble-menu': 'EditorBubbleMenu 负责编辑器浮动工具栏的结构和状态。',
-  'design-panel': 'DesignPanel 负责设计调试面板的展示规则。',
-  'ai-actions': 'AI 交互规则讲的是辅助优先级、失败回退和局部反馈。',
-  'tags-guide': '标签系统规则讲的是推荐逻辑、保存顺序和回退机制。',
-  dialogs: '弹窗家族规则讲的是不同弹窗之间的角色分工和一致性。',
-  login: '登录页规则讲的是单栏结构、Magic Link 状态和成功失败反馈。',
 }
 
 const demoFolders = [
@@ -340,8 +79,33 @@ const demoItems = [
     folderId: 'folder-ai',
     title: 'LLM 标签策略',
     url: 'https://example.com/llm-tags',
-    note: '研究 AI 分类和标签回退方案',
+    note: '研究手动加工和确认入库方案',
   },
+]
+
+const colorTokens = DESIGN_TOKENS.colors
+const shadowPresets = DESIGN_TOKENS.effects.shadow.presets
+
+const semanticColorRows: Array<[string, string, string]> = [
+  ['Primary', colorTokens.primary.value, colorTokens.primary.role],
+  ['Success', colorTokens.success.value, colorTokens.success.role],
+  ['Danger', colorTokens.danger.value.toUpperCase(), colorTokens.danger.role],
+  ['Warning', colorTokens.warning.value.toUpperCase(), colorTokens.warning.role],
+  ['Info', colorTokens.link.value.toUpperCase(), colorTokens.link.role],
+  ['Neutral', '#595959', '文本、图标、边框、背景等基础元素'],
+]
+
+const functionalColorRows: Array<[string, string, string[]]> = [
+  ['Success', '成功', ['#ECFDF5', '#A7F3D0', '#34D399', colorTokens.success.value.toUpperCase(), '#047857']],
+  ['Warning', '警告', ['#FFFBEB', '#FDE68A', '#FBBF24', colorTokens.warning.value.toUpperCase(), '#B45309']],
+  ['Danger', '错误', ['#FEF2F2', '#FECACA', '#F87171', colorTokens.danger.value.toUpperCase(), '#B91C1C']],
+  ['Link', '链接', ['#EFF6FF', '#BFDBFE', '#60A5FA', colorTokens.link.value.toUpperCase(), '#1D4ED8']],
+]
+
+const iconColorRows: Array<[string, DesignColorToken]> = [
+  ['主图标', colorTokens['icon-primary']],
+  ['次级图标', colorTokens['icon-secondary']],
+  ['禁用图标', colorTokens['icon-disabled']],
 ]
 
 function SectionCard({
@@ -790,9 +554,9 @@ export default function DesignShowcasePage() {
                       </div>
                       {/* 行 */}
                       {[
-                        { name: 'none',  desc: '无阴影，默认状态',              shadow: 'none',                             token: 'none' },
-                        { name: 'md',    desc: '组件级强调（如主按钮、标签）',   shadow: '0 4px 12px rgba(0, 0, 0, 0.08)',   token: '0 4px 12px rgba(0, 0, 0, 0.08)' },
-                        { name: 'lg',    desc: '容器级强调（如卡片、弹窗壳层）', shadow: '0 8px 24px rgba(0, 0, 0, 0.12)',   token: '0 8px 24px rgba(0, 0, 0, 0.12)' },
+                        { name: 'none', desc: '无阴影，默认状态', shadow: shadowPresets.none.value, token: shadowPresets.none.value },
+                        { name: 'md', desc: '组件级强调（如主按钮、标签）', shadow: shadowPresets.md.value, token: shadowPresets.md.value },
+                        { name: 'lg', desc: '容器级强调（如卡片、弹窗壳层）', shadow: shadowPresets.lg.value, token: shadowPresets.lg.value },
                       ].map(({ name, desc, shadow, token }) => (
                         <div key={name} className="grid grid-cols-[120px_1fr_64px_280px_36px] items-center gap-4 border-b border-border px-4 py-3 last:border-0">
                           <span className="inline-flex">
@@ -853,12 +617,12 @@ export default function DesignShowcasePage() {
                     </p>
                     <div className="grid gap-6 md:grid-cols-[260px_minmax(0,1fr)]">
                       <div className="rounded-2xl border border-border bg-card p-5">
-                        <div className="h-24 rounded-xl border border-border bg-[#262626]" />
+                        <div className="h-24 rounded-xl border border-border" style={{ backgroundColor: colorTokens.primary.value }} />
                         <div className="mt-4 space-y-1">
                           <p className="text-xl font-semibold text-foreground">主色 Primary</p>
-                          <p className="font-mono text-sm text-muted-foreground">#262626</p>
-                          <p className="text-sm leading-6 text-muted-foreground">用于主按钮、重点操作和当前品牌主识别色。</p>
-                          <p className="font-mono text-sm text-muted-foreground">hover: #1F1F1F</p>
+                          <p className="font-mono text-sm text-muted-foreground">{colorTokens.primary.value}</p>
+                          <p className="text-sm leading-6 text-muted-foreground">{colorTokens.primary.role}。</p>
+                          <p className="font-mono text-sm text-muted-foreground">hover: {colorTokens['primary-hover'].value}</p>
                         </div>
                       </div>
                       <div className="grid gap-3 md:grid-cols-8">
@@ -934,12 +698,7 @@ export default function DesignShowcasePage() {
                       功能色只负责状态，不拿来充当普通装饰色。当前项目主要用成功、警告、错误和链接四类。
                     </p>
                     <div className="space-y-4">
-                      {[
-                        ['Success', '成功', ['#ECFDF5', '#A7F3D0', '#34D399', '#059669', '#047857']],
-                        ['Warning', '警告', ['#FFFBEB', '#FDE68A', '#FBBF24', '#D97706', '#B45309']],
-                        ['Danger', '错误', ['#FEF2F2', '#FECACA', '#F87171', '#DC2626', '#B91C1C']],
-                        ['Link', '链接', ['#EFF6FF', '#BFDBFE', '#60A5FA', '#2563EB', '#1D4ED8']],
-                      ].map(([en, cn, colors]) => (
+                      {functionalColorRows.map(([en, cn, colors]) => (
                         <div key={en} className="grid gap-4 md:grid-cols-[160px_minmax(0,1fr)]">
                           <div>
                             <p className="text-base font-semibold text-foreground">{cn} {en}</p>
@@ -1008,15 +767,11 @@ export default function DesignShowcasePage() {
                         <div className="rounded-xl border border-border bg-card p-4">
                           <h4 className="text-lg font-semibold tracking-tight">图标色</h4>
                           <div className="mt-3 flex gap-3">
-                            {[
-                              ['主图标', '#262626'],
-                              ['次级图标', '#8C8C8C'],
-                              ['禁用图标', '#BFBFBF'],
-                            ].map(([label, color]) => (
+                            {iconColorRows.map(([label, token]) => (
                               <div key={label} className="flex-1 rounded-lg border border-border p-3">
-                                <div className="h-8 w-8 rounded-md border border-border" style={{ backgroundColor: color }} />
+                                <div className="h-8 w-8 rounded-md border border-border" style={{ backgroundColor: token.value }} />
                                 <p className="mt-2 text-sm font-medium text-foreground">{label}</p>
-                                <p className="font-mono text-[12px] text-muted-foreground">{color}</p>
+                                <p className="font-mono text-[12px] text-muted-foreground">{token.value}</p>
                               </div>
                             ))}
                           </div>
@@ -1037,14 +792,7 @@ export default function DesignShowcasePage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {[
-                            ['Primary', '#262626', '主按钮、重点操作、当前品牌主色'],
-                            ['Success', '#059669', '成功状态、正向反馈、完成提示'],
-                            ['Danger', '#DC2626', '删除操作、错误提示、危险状态'],
-                            ['Warning', '#D97706', '警告提示、注意事项、频率限制'],
-                            ['Info', '#2563EB', '链接、帮助说明、信息提示'],
-                            ['Neutral', '#595959', '文本、图标、边框、背景等基础元素'],
-                          ].map(([name, hex, usage]) => (
+                          {semanticColorRows.map(([name, hex, usage]) => (
                             <tr key={name} className="border-b border-border last:border-b-0">
                               <td className="px-4 py-3 font-medium text-foreground">{name}</td>
                               <td className="px-4 py-3">
@@ -1120,23 +868,23 @@ export default function DesignShowcasePage() {
               <SectionCard title="AI 交互 AIActions" doc="docs/design/ai-actions.md" description={sectionDescriptions['ai-actions']}>
                 <div className="space-y-5">
                   <div className="rounded-xl border border-border bg-background p-4 text-sm leading-6 text-muted-foreground">
-                    AI 在 Pocket Brain 里是辅助，不是主流程。规则是：<strong>保存优先，AI 次之，AI 失败不能卡死用户</strong>。
+                    AI 在 Pocket Brain 里是辅助，不是保存主流程。规则是：<strong>先保存原材料，再由用户主动加工并确认入库</strong>。
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="rounded-xl border border-border bg-background p-4">
-                      <p className="mb-2 text-sm font-medium">AI 分类</p>
+                      <p className="mb-2 text-sm font-medium">加工入库</p>
                       <ul className="list-disc space-y-1 pl-4 text-sm leading-6 text-muted-foreground">
-                        <li>标签标题右侧手动触发</li>
-                        <li>loading 文案：`分类中…`</li>
-                        <li>超时后保留手动操作出口</li>
+                        <li>从内容卡片手动触发</li>
+                        <li>loading 文案：`加工中…`</li>
+                        <li>失败不影响原材料保存</li>
                       </ul>
                     </div>
                     <div className="rounded-xl border border-border bg-background p-4">
-                      <p className="mb-2 text-sm font-medium">AI 总结</p>
+                      <p className="mb-2 text-sm font-medium">确认入库</p>
                       <ul className="list-disc space-y-1 pl-4 text-sm leading-6 text-muted-foreground">
-                        <li>备注标题右侧手动触发</li>
-                        <li>失败只做局部提示，不升级成全局错误</li>
-                        <li>按钮保留重试入口</li>
+                        <li>AI 只生成可编辑草稿</li>
+                        <li>用户确认前不写摘要和标签</li>
+                        <li>标题、摘要、标签都可手动修改</li>
                       </ul>
                     </div>
                   </div>
@@ -1152,12 +900,12 @@ export default function DesignShowcasePage() {
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="rounded-xl border border-border bg-background p-4">
-                      <p className="mb-2 text-sm font-medium">AI 推荐</p>
-                      <p className="text-sm text-muted-foreground">有 AI 推荐时，前台推荐只展示 `content + format`，`source` 只保留为底层元数据。</p>
+                      <p className="mb-2 text-sm font-medium">保存表单</p>
+                      <p className="text-sm text-muted-foreground">保存阶段只保留用户手动选择的标签，不在后台自动生成推荐。</p>
                     </div>
                     <div className="rounded-xl border border-border bg-background p-4">
-                      <p className="mb-2 text-sm font-medium">最终结果</p>
-                      <p className="text-sm text-muted-foreground">保存后按弹窗里最后留下的标签集合为准；一个都没有时回退到 `其他`。</p>
+                      <p className="mb-2 text-sm font-medium">加工弹窗</p>
+                      <p className="text-sm text-muted-foreground">加工后展示 AI 草稿标签，用户确认后才写回知识。</p>
                     </div>
                   </div>
                 </div>
@@ -1593,14 +1341,13 @@ export default function DesignShowcasePage() {
               <SectionCard title="备注字段 NoteField" doc="docs/design/note-field.md">
                 <div className="space-y-4">
                   <div className="rounded-xl border border-border bg-background p-4 text-sm leading-6 text-muted-foreground">
-                    底层是 shadcn `Textarea`，但 `备注 + AI 总结` 的标题关系和提示位置属于字段级 Pattern。
+                    底层是 shadcn `Textarea`，但保存阶段只收集用户备注；AI 摘要统一放到加工入库弹窗里确认。
                   </div>
                   <div className="rounded-xl border border-border bg-background p-4">
                     <div className="mb-1 flex items-center justify-between gap-3">
                       <label className="text-sm font-medium">备注</label>
-                      <span className="text-xs text-muted-foreground">AI 总结</span>
                     </div>
-                    <Textarea placeholder="添加备注，或点右上角让 AI 生成总结…" className="min-h-28" />
+                    <Textarea placeholder="补充自己的备注；保存后可在卡片上加工入库" className="min-h-28" />
                   </div>
                 </div>
               </SectionCard>
@@ -1612,17 +1359,11 @@ export default function DesignShowcasePage() {
                   <div className="rounded-xl border border-border bg-background p-4 text-sm leading-6 text-muted-foreground">
                     底层依赖 <code className="rounded bg-background px-1.5 py-0.5 font-mono text-[11px]">Input</code> 和
                     <code className="ml-1 rounded bg-background px-1.5 py-0.5 font-mono text-[11px]">TagChip</code>，
-                    但“标签标题 + AI 分类 + 已选 / 最近 / AI 推荐”的整项体验属于字段级 Pattern。
+                    但“标签输入 + 已选 / 最近 / 搜索新建”的整项体验属于字段级 Pattern。
                   </div>
                   <div className="rounded-xl border border-border bg-background p-4 space-y-3">
                     <div className="flex items-center justify-between gap-3">
                       <label className="text-sm font-medium">标签</label>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-                      >
-                        AI 分类
-                      </button>
                     </div>
                     <Input placeholder="输入标签名搜索或新建" />
                     <div className="flex gap-1.5">
@@ -1637,13 +1378,6 @@ export default function DesignShowcasePage() {
                       <div className="flex flex-wrap items-center gap-1.5">
                         <TagChip tone="muted" onClick={() => {}}>网站</TagChip>
                         <TagChip tone="muted" onClick={() => {}}>Claude</TagChip>
-                      </div>
-                    </div>
-                    <div className="flex gap-1.5">
-                      <span className="shrink-0 text-[11px] leading-6 text-muted-foreground">AI 推荐：</span>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <TagChip onClick={() => {}}>新闻</TagChip>
-                        <TagChip onClick={() => {}}>时政</TagChip>
                       </div>
                     </div>
                   </div>
@@ -1672,7 +1406,7 @@ export default function DesignShowcasePage() {
                         灵感：主输入区 → 标签 → 文件夹
                       </TabsContent>
                       <TabsContent value="file" className="pt-4 text-sm text-muted-foreground">
-                        资料：文件区 → 标签 → 文件夹
+                        资料：文件区 → 标题 → 备注 → 标签 → 文件夹
                       </TabsContent>
                     </Tabs>
                   </div>
@@ -1725,6 +1459,9 @@ export default function DesignShowcasePage() {
                         search={sidebarSearch}
                         onSearch={setSidebarSearch}
                         onAdd={() => {}}
+                        onGetApp={() => {}}
+                        currentUserEmail="demo@pocketbrain.local"
+                        onSignOut={async () => {}}
                         mobileOpen={false}
                         onMobileClose={() => {}}
                       />
@@ -1739,7 +1476,7 @@ export default function DesignShowcasePage() {
                 <div className="space-y-4">
                   <div className="rounded-xl border border-border bg-background p-4 text-sm leading-6 text-muted-foreground">
                     这里直接挂真实 <code className="rounded bg-background px-1.5 py-0.5 font-mono text-[11px]">SaveForm</code> 组件，
-                    保留真实 tab、标签区、重复链接检查、AI 分类入口和 footer 映射。
+                    保留真实 tab、标签区、重复链接检查和“先保存原材料”的 footer 映射。
                   </div>
                   <div className="overflow-hidden rounded-2xl border border-border bg-background">
                     <div className="max-w-4xl p-6">
@@ -1800,7 +1537,9 @@ export default function DesignShowcasePage() {
                         onMove={async () => {}}
                         onDelete={async () => {}}
                         onAdd={() => {}}
+                        onGetApp={() => {}}
                         onEdit={() => {}}
+                        onProcessKnowledge={() => {}}
                         onMobileMenuOpen={() => {}}
                       />
                     </div>
@@ -1857,6 +1596,31 @@ export default function DesignShowcasePage() {
                     onConfirm={() => setConfirmDialogOpen(false)}
                     danger
                   />
+                </div>
+              </SectionCard>
+            )}
+
+            {activeSection === 'knowledge-process-dialog' && (
+              <SectionCard title="加工入库 KnowledgeProcessDialog" doc="docs/design/knowledge-process-dialog.md" description={sectionDescriptions['knowledge-process-dialog']}>
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-border bg-background p-4 text-sm leading-6 text-muted-foreground">
+                    保存只收集原材料；加工入库由用户从卡片主动触发，并在弹窗里确认标题、摘要和标签后才写回。
+                  </div>
+                  <div className="rounded-xl border border-border bg-background p-4">
+                    <div className="max-w-md rounded-lg border border-dashed border-border bg-muted/30 px-4 py-5">
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-background text-muted-foreground">
+                          <Zap size={16} />
+                        </div>
+                        <div className="min-w-0 space-y-1">
+                          <p className="text-sm font-medium text-foreground">原材料卡片</p>
+                          <p className="text-xs leading-5 text-muted-foreground">
+                            点击开始加工后生成知识草稿；点击确认入库后才写入摘要和标签。
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </SectionCard>
             )}

@@ -98,10 +98,98 @@ function designTokenPlugin() {
   }
 }
 
+// ── 本地 Vercel API 模拟（仅 dev 模式生效）──
+function apiDevPlugin() {
+  const root = path.resolve(__dirname)
+
+  async function readJsonBody(req) {
+    let body = ''
+    for await (const chunk of req) body += chunk
+    if (!body) return {}
+    return JSON.parse(body)
+  }
+
+  function createApiResponse(res) {
+    return {
+      status(code) {
+        res.statusCode = code
+        return this
+      },
+      json(payload) {
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify(payload))
+        return this
+      },
+      send(payload) {
+        if (typeof payload === 'object') {
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify(payload))
+          return this
+        }
+        res.end(payload)
+        return this
+      },
+      setHeader(name, value) {
+        res.setHeader(name, value)
+        return this
+      },
+    }
+  }
+
+  return {
+    name: 'api-dev',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith('/api/')) {
+          next()
+          return
+        }
+
+        const url = new URL(req.url, 'http://localhost')
+        const apiName = url.pathname.replace(/^\/api\//, '')
+        if (!apiName || apiName.includes('/') || apiName.startsWith('_')) {
+          next()
+          return
+        }
+
+        const apiFile = path.join(root, 'api', `${apiName}.ts`)
+        if (!fs.existsSync(apiFile)) {
+          next()
+          return
+        }
+
+        try {
+          const mod = await server.ssrLoadModule(`/api/${apiName}.ts`)
+          const handler = mod.default
+          if (typeof handler !== 'function') {
+            next()
+            return
+          }
+
+          req.query = Object.fromEntries(url.searchParams.entries())
+          req.body = req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH'
+            ? await readJsonBody(req)
+            : {}
+
+          await handler(req, createApiResponse(res))
+        } catch (error) {
+          console.error('[PB] local api error:', error)
+          if (!res.headersSent) {
+            res.statusCode = 500
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ error: 'Local API error' }))
+          }
+        }
+      })
+    },
+  }
+}
+
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    apiDevPlugin(),
     designTokenPlugin(),
     VitePWA({
       registerType: 'autoUpdate',

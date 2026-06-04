@@ -9,13 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { TagChip, getTagChipTone } from '@/components/ui/tag-chip'
 import { cn } from '@/lib/utils'
 import { fetchItemByUrl, fetchUserTagLibrary, fetchRecentlyUsedTags, uploadFile } from '@/utils/supabase'
-import { classifyPreview } from '@/utils/item-service'
 import type { ConfirmedTagDraft } from '@/utils/item-service'
 import type { BookmarkItem, ItemTag } from '@/utils/supabase'
 
 // ── 常量 ──────────────────────────────────────────────────────────────────────
-
-const TYPES = ['article', 'video', 'audio', 'tweet', 'other'] as const
 
 const FILE_HINTS: { test: (f: File) => boolean; limit: number; message: string }[] = [
   { test: f => f.type.startsWith('video/'), limit: 50, message: '视频超过 50MB，建议上传到视频平台后用链接收藏' },
@@ -26,7 +23,6 @@ const FILE_HINTS: { test: (f: File) => boolean; limit: number; message: string }
 
 const INBOX = '__inbox__'
 const TOTAL_LIMIT_MB = 20
-const AUTO_CLASSIFY_TIMEOUT_MS = 4000
 
 // ── 工具函数 ─────────────────────────────────────────────────────────────────
 
@@ -294,17 +290,7 @@ export default function SaveForm({
   const [fetchingTitle,  setFetchingTitle]  = useState(false)
   const [urlError, setUrlError] = useState('')
   const [duplicateUrlError, setDuplicateUrlError] = useState('')
-  const [type,           setType]           = useState(editItem?.type  ?? 'other')
   const [note,           setNote]           = useState(editItem?.type !== 'note' ? (editItem?.note ?? '') : '')
-  const [typeTouched,    setTypeTouched]    = useState(!!editItem)
-  const [classifyLoading, setClassifyLoading] = useState(false)
-  const [summaryLoading, setSummaryLoading] = useState(false)
-  const [summaryError, setSummaryError] = useState('')
-  const [previewCategoryId, setPreviewCategoryId] = useState<string | null>(editItem?.categoryId ?? null)
-  const [previewConfidence, setPreviewConfidence] = useState<'high' | 'medium' | 'low' | null>(editItem?.confidence ?? null)
-  const [previewTags, setPreviewTags] = useState<ConfirmedTagDraft[]>(
-    []
-  )
   const initialEditTags = (editItem?.tags || []).map(tag => ({
     name: tag.name,
     type: tag.type,
@@ -317,9 +303,6 @@ export default function SaveForm({
   })
   const [tagLibrary, setTagLibrary] = useState<Array<{ name: string; type: ItemTag['type'] }>>([])
   const [recentTags, setRecentTags] = useState<Array<{ name: string; type: ItemTag['type'] }>>([])
-  const [dismissedSuggestionKeys, setDismissedSuggestionKeys] = useState<string[]>([])
-  const [previewError, setPreviewError] = useState('')
-  const [previewSlowMessage, setPreviewSlowMessage] = useState('')
   const [draftTagNames, setDraftTagNames] = useState<Record<FormTab, string>>({
     bookmark: '',
     note: '',
@@ -328,8 +311,6 @@ export default function SaveForm({
   const [tagInputError, setTagInputError] = useState('')
   const [saveError, setSaveError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const classifyRequestRef = useRef(0)
-  const classifyAbortRef = useRef<AbortController | null>(null)
   const dragIndexRef = useRef<number | null>(null)
   const [draggingTagIndex, setDraggingTagIndex] = useState<number | null>(null)
   const [dragOverTagIndex, setDragOverTagIndex] = useState<number | null>(null)
@@ -447,15 +428,7 @@ export default function SaveForm({
           const existingItem = await fetchItemByUrl(normalizeComparableUrl(trimmedUrl))
           if (!active) return
           if (existingItem?.id) {
-            classifyAbortRef.current?.abort()
             setFetchingTitle(false)
-            setClassifyLoading(false)
-            setPreviewError('')
-            setPreviewSlowMessage('')
-            setPreviewCategoryId(null)
-            setPreviewConfidence(null)
-            setPreviewTags([])
-            setDismissedSuggestionKeys([])
             setDuplicateUrlError('该链接已存在，不能重复保存')
             return
           }
@@ -473,69 +446,14 @@ export default function SaveForm({
     }
   }, [url, tab, isEdit])
 
-  // 手动触发 AI 分类
-  async function handleClassifyTags() {
-    const trimmedUrl = normalizeUrlInput(url)
-    if (!isValidHttpUrl(trimmedUrl)) {
-      setUrlError('请输入有效的 http(s) 链接')
-      return
-    }
-
-    classifyAbortRef.current?.abort()
-    const controller = new AbortController()
-    classifyAbortRef.current = controller
-    const { signal } = controller
-
-    setUrlError('')
-    setPreviewError('')
-    setPreviewSlowMessage('')
-    setClassifyLoading(true)
-    setPreviewTags([])
-    setDismissedSuggestionKeys([])
-
-    const timeoutId = window.setTimeout(() => {
-      controller.abort()
-      setClassifyLoading(false)
-      setPreviewSlowMessage('AI 分类超时，可手动选择标签后保存')
-    }, AUTO_CLASSIFY_TIMEOUT_MS)
-
-    try {
-      const data = await classifyPreview({ url: trimmedUrl, title, note }, { signal })
-      setPreviewSlowMessage('')
-      if (!data) {
-        setPreviewError('AI 分类暂时失败，可手动添加标签')
-        return
-      }
-      if (data.type && !typeTouched) setType(data.type)
-      setPreviewCategoryId(data.category_id || null)
-      setPreviewConfidence(data.confidence || null)
-      setPreviewTags(
-        (Array.isArray(data.tags) ? data.tags : []).map(tag => ({
-          name: tag.name,
-          type: tag.type,
-          appliedBy: 'ai' as const,
-        }))
-      )
-    } catch (err) {
-      if (signal.aborted) return
-      console.error('[PB] classify error:', err)
-      setPreviewSlowMessage('')
-      setPreviewError('AI 分类暂时失败，可手动添加标签')
-    } finally {
-      window.clearTimeout(timeoutId)
-      setClassifyLoading(false)
-      if (classifyAbortRef.current?.signal === signal) {
-        classifyAbortRef.current = null
-      }
-    }
-  }
-
   // 记录
   const [content, setContent] = useState(editItem?.type === 'note' ? (editItem?.note ?? '') : '')
 
   // 资源
   const [files,       setFiles]       = useState<File[]>([])
   const [fileTitle,   setFileTitle]   = useState('')
+  const [fileTitleTouched, setFileTitleTouched] = useState(false)
+  const [fileNote, setFileNote] = useState('')
   const [dragOver,    setDragOver]    = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
 
@@ -551,16 +469,7 @@ export default function SaveForm({
   const validFolderIds = new Set(folders.map(folder => folder.id))
   const selectedTags = selectedTagsByTab[tab]
   const draftTagName = draftTagNames[tab]
-  const canonicalPreviewTags = dedupeTags(previewTags.map(tag => resolveCanonicalTag(tag, tagLibrary)))
-  const selectedTagKeys = new Set(selectedTags.map(getTagMatchKey))
-  const dismissedSuggestionKeySet = new Set(dismissedSuggestionKeys)
-  const suggestedTags = canonicalPreviewTags.filter(tag =>
-    !selectedTagKeys.has(getTagMatchKey(tag)) &&
-    !dismissedSuggestionKeySet.has(getTagMatchKey(tag))
-  )
   const finalTags = selectedTags
-  const previewReady = finalTags.length > 0 || Boolean(previewCategoryId)
-  const previewPending = tab === 'bookmark' && classifyLoading
   const canSave = tab === 'note'
     ? content.trim().length > 0
     : tab === 'file'
@@ -568,20 +477,14 @@ export default function SaveForm({
       : isValidHttpUrl(url)
   const footerMessage = tab === 'bookmark'
     ? saving
-      ? '正在写入收藏与标签…'
+      ? '正在保存原材料…'
       : saveError
         ? saveError
-      : !isEdit && previewPending
-        ? 'AI 正在分类，你也可以直接保存'
-      : !isEdit && previewSlowMessage
-        ? previewSlowMessage
       : urlError
           ? urlError
-        : previewError
-          ? previewError
-          : previewReady
-            ? '按最终已选标签保存'
-            : '可点击 AI 分类自动推荐标签，或手动添加'
+        : finalTags.length > 0
+          ? '保存为原材料，并保留你手动选择的标签'
+          : '先保存为原材料；之后可从卡片选择加工入库'
     : tab === 'file'
       ? overLimit
         ? `文件总大小超过 ${TOTAL_LIMIT_MB}MB，暂时无法保存`
@@ -649,11 +552,7 @@ export default function SaveForm({
   }
 
   function handleRemoveSelectedTag(tagToRemove: ConfirmedTagDraft) {
-    const removedKey = getTagMatchKey(tagToRemove)
     updateSelectedTagsForTab(tab, prev => prev.filter(tag => !isSameTag(tag, tagToRemove)))
-    if (tab === 'bookmark' && previewTags.some(tag => getTagMatchKey(tag) === removedKey)) {
-      setDismissedSuggestionKeys(prev => prev.filter(key => key !== removedKey))
-    }
   }
 
   function handleAddUserTag() {
@@ -673,49 +572,17 @@ export default function SaveForm({
     setTagInputError('')
 
     updateSelectedTagsForTab(tab, prev => [...prev, normalized])
-    if (tab === 'bookmark') {
-      const normalizedKey = getTagMatchKey(normalized)
-      setDismissedSuggestionKeys(prev => prev.filter(key => key !== normalizedKey))
-    }
     setDraftTagNameForTab(tab, '')
   }
 
-  function handleAcceptSuggestedTag(tag: ConfirmedTagDraft) {
-    const acceptedKey = getTagMatchKey(tag)
-    updateSelectedTagsForTab('bookmark', prev => dedupeTags([...prev, tag]))
-    setDismissedSuggestionKeys(prev => prev.filter(key => key !== acceptedKey))
-  }
-
-  async function handleGenerateSummary() {
-    const trimmedUrl = normalizeUrlInput(url)
-    if (!isValidHttpUrl(trimmedUrl)) {
-      setUrlError('请输入有效的 http(s) 链接')
-      return
-    }
-
-    setUrlError('')
-    setSummaryError('')
-    setSummaryLoading(true)
-    try {
-      const data = await classifyPreview({ url: trimmedUrl, title, note: '' })
-      const nextNote = data?.summary?.trim()
-      if (!nextNote) {
-        setSummaryError('暂未生成总结，你可以继续手写备注')
-        return
-      }
-      setNote(nextNote)
-    } catch (error) {
-      console.error('[PB] generate summary failed:', error)
-      setSummaryError('AI 总结暂时失败，请稍后再试')
-    } finally {
-      setSummaryLoading(false)
-    }
-  }
-
   function addFiles(incoming: File[]) {
+    if (incoming.length === 0) return
+    setUploadError(null)
     setFiles(prev => {
-      if (prev.length === 0 && incoming.length > 0 && !fileTitle)
+      if (prev.length === 0 && incoming.length > 0 && !fileTitle) {
         setFileTitle(incoming[0].name)
+        setFileTitleTouched(false)
+      }
       return [...prev, ...incoming]
     })
   }
@@ -765,7 +632,7 @@ export default function SaveForm({
             url: publicUrl,
             title: fileTitle.trim() || file.name,
             type: 'file',
-            note: '',
+            note: files.length === 1 ? fileNote.trim() : '',
             folderId,
             tags: finalTags,
           })
@@ -776,11 +643,9 @@ export default function SaveForm({
           ...(isEdit ? { id: editItem.id } : {}),
           url: url.trim(),
           title: title.trim() || '无标题',
-          type, note: note.trim(),
+          type: editItem?.type && editItem.type !== 'note' ? editItem.type : guessType(url.trim()),
+          note: note.trim(),
           folderId,
-          categoryId: previewCategoryId,
-          confidence: previewConfidence,
-          // 最终保存结果以对话框中最后留下的标签为准
           tags: finalTags,
         })
       }
@@ -805,13 +670,7 @@ export default function SaveForm({
     updateSelectedTagsForTab(tab, prev => moveTag(prev, dragIndex, dropIndex))
   }
 
-  function renderTagField({
-    showAiStatus = false,
-    showSuggestions = false,
-  }: {
-    showAiStatus?: boolean
-    showSuggestions?: boolean
-  }) {
+  function renderTagField() {
     const draft = draftTagName.trim()
     const draftLower = draft.toLowerCase()
     const isSearching = draftLower.length > 0
@@ -826,7 +685,7 @@ export default function SaveForm({
               searchTokens.some(st => lt.includes(st) || st.includes(lt))
             )
           })
-          .filter(lib => !selectedTags.some(sel => isSameTag(sel, { ...lib, appliedBy: 'user' })))
+          .filter(lib => !selectedTags.some(sel => isSameTag(sel, lib)))
           .slice(0, 8)
       : []
     const hasExactMatch = isSearching && tagLibrary.some(
@@ -836,7 +695,7 @@ export default function SaveForm({
     // 最近使用：未输入时显示最近使用过的标签（排除已选）
     const recentPickTags = !isSearching
       ? recentTags
-          .filter(lib => !selectedTags.some(sel => isSameTag(sel, { ...lib, appliedBy: 'user' })))
+          .filter(lib => !selectedTags.some(sel => isSameTag(sel, lib)))
           .slice(0, 6)
       : []
 
@@ -848,28 +707,10 @@ export default function SaveForm({
 
     return (
       <div className="space-y-2">
-        {/* 第一行：标签标题 + AI 分类按钮 */}
+        {/* 第一行：标签标题 */}
         <div className="flex items-center justify-between mb-1">
           <label className="text-sm font-medium">标签</label>
-          {showAiStatus && !isEdit && (
-            <button
-              type="button"
-              onClick={() => void handleClassifyTags()}
-              disabled={classifyLoading || !isValidHttpUrl(url)}
-              className="inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
-            >
-              {classifyLoading && <Loader2 size={11} className="animate-spin" />}
-              {classifyLoading ? '分类中…' : 'AI 分类'}
-            </button>
-          )}
         </div>
-
-        {/* 分类错误/超时提示 */}
-        {(previewSlowMessage || previewError) && (
-          <p className={cn('text-xs', previewSlowMessage ? 'text-[var(--warning)]' : 'text-destructive')}>
-            {previewSlowMessage || previewError}
-          </p>
-        )}
 
         {/* 输入框 */}
         <div className="relative">
@@ -990,25 +831,6 @@ export default function SaveForm({
             </div>
           </div>
         )}
-
-        {/* AI 推荐 */}
-        {showSuggestions && suggestedTags.length > 0 && (
-          <div className="flex gap-1.5">
-            <span className="text-[11px] text-muted-foreground shrink-0 leading-6">AI 推荐：</span>
-            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-              {suggestedTags.map(tag => (
-                <TagChip
-                  key={`suggested:${tag.type}:${tag.name}:${tag.appliedBy}`}
-                  tone={getTagChipTone(tag)}
-                  onClick={() => handleAcceptSuggestedTag(tag)}
-                  className="cursor-pointer"
-                >
-                  {tag.name}
-                </TagChip>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     )
   }
@@ -1076,7 +898,7 @@ export default function SaveForm({
             </div>
             {renderFolderField()}
             <div>
-              {renderTagField({ showAiStatus: true, showSuggestions: true })}
+              {renderTagField()}
             </div>
             <div>
               <div className="flex items-center justify-between mb-1 gap-2">
@@ -1087,35 +909,19 @@ export default function SaveForm({
                       type="button"
                       onClick={() => {
                         setNote('')
-                        setSummaryError('')
                       }}
                       className="text-[11px] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
                     >
                       清空
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => void handleGenerateSummary()}
-                    disabled={summaryLoading || !isValidHttpUrl(url)}
-                    className="inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
-                  >
-                    {summaryLoading && <Loader2 size={11} className="animate-spin" />}
-                    {summaryLoading ? '总结中…' : 'AI 总结'}
-                  </button>
                 </div>
               </div>
               <div className="space-y-2">
-                {summaryError && (
-                  <p className="text-xs text-destructive">{summaryError}</p>
-                )}
                 <Textarea
-                  placeholder="添加备注，或点右上角让 AI 生成总结…"
+                  placeholder="补充自己的备注；保存后可在卡片上加工入库"
                   value={note}
-                  onChange={e => {
-                    setNote(e.target.value)
-                    if (summaryError) setSummaryError('')
-                  }}
+                  onChange={e => setNote(e.target.value)}
                   rows={3}
                   className="resize-none text-sm"
                 />
@@ -1140,7 +946,7 @@ export default function SaveForm({
                 </span>
               </div>
             </div>
-            {renderTagField({ showAiStatus: false, showSuggestions: false })}
+            {renderTagField()}
           </>
         )}
 
@@ -1177,7 +983,17 @@ export default function SaveForm({
                           <p className="text-xs font-medium truncate">{f.name}</p>
                           <p className="text-[10px] text-muted-foreground">{formatFileSize(f.size)}</p>
                         </div>
-                        <button type="button" onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))}
+                        <button type="button" onClick={() => {
+                          setFiles(prev => {
+                            const next = prev.filter((_, j) => j !== i)
+                            if (next.length === 0) {
+                              setFileNote('')
+                              setFileTitle('')
+                              setFileTitleTouched(false)
+                            }
+                            return next
+                          })
+                        }}
                           className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0">
                           <X size={12} />
                         </button>
@@ -1195,12 +1011,30 @@ export default function SaveForm({
 
             <div>
               <label className="text-sm font-medium block mb-1">标题</label>
-              <Input className="text-sm" placeholder="留空则使用文件名" value={fileTitle} onChange={e => setFileTitle(e.target.value)} />
+              <Input
+                className="text-sm"
+                placeholder="留空则使用文件名"
+                value={fileTitle}
+                onChange={e => {
+                  setFileTitle(e.target.value)
+                  setFileTitleTouched(true)
+                }}
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">备注</label>
+              <Textarea
+                placeholder="给原材料补充一句自己的备注，可选"
+                value={fileNote}
+                onChange={e => setFileNote(e.target.value)}
+                className="min-h-24 resize-none text-sm"
+              />
             </div>
             {uploadError && (
               <p className="text-xs text-destructive bg-destructive/10 rounded-md px-3 py-2">{uploadError}</p>
             )}
-            {renderTagField({ showAiStatus: false, showSuggestions: false })}
+            {renderTagField()}
           </div>
         )}
 

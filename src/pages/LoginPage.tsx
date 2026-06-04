@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Logo } from '@/components/ui/Logo'
 import { FormFieldMessage } from '@/components/patterns/FormFieldMessage'
 import { useAuth } from '@/hooks/use-auth'
+import { isDevAuthBypassEnabled } from '@/utils/auth'
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
@@ -137,6 +138,11 @@ export default function LoginPage() {
   }, [])
 
   useEffect(() => {
+    if (!isDevAuthBypassEnabled()) return
+    navigate(redirectTarget, { replace: true })
+  }, [navigate, redirectTarget])
+
+  useEffect(() => {
     if (loading || !user) return
     navigate(redirectTarget, { replace: true })
   }, [loading, user, navigate, redirectTarget])
@@ -238,52 +244,58 @@ export default function LoginPage() {
                     </p>
                   </div>
                 </div>
-                <div className="flex flex-col gap-sm sm:flex-row sm-gap-md">
-                  <Button type="button" size="lg" shadow="md" className="sm:flex-1" onClick={() => setStatus('idle')}>
-                    重新发送
-                  </Button>
-                  <Button type="button" variant="ghost" size="lg" className="sm:flex-1" onClick={() => setEmail('')}>
-                    更换邮箱
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-12 rounded-2xl"
+                  onClick={() => {
+                    setStatus('idle')
+                    setError('')
+                  }}
+                >
+                  换一个邮箱
+                </Button>
               </div>
             ) : (
               <form
-                className="animate-in fade-in-0 slide-in-from-bottom-3 stack-lg rounded-[28px] border border-slate-200/90 bg-white/92 pad-card-xl shadow-[var(--shadow-lg)] backdrop-blur-md duration-300"
                 onSubmit={handleSubmit}
+                className="animate-in fade-in-0 slide-in-from-bottom-3 rounded-[28px] border border-slate-200/90 bg-white/92 pad-card-xl shadow-[var(--shadow-lg)] backdrop-blur-md duration-300"
               >
-                <div className="stack-sm">
-                  <label htmlFor="login-email" className="text-lg font-semibold text-foreground">
+                <div className="stack-md">
+                  <label htmlFor="email" className="text-sm font-semibold text-slate-950">
                     邮箱
                   </label>
                   <Input
-                    id="login-email"
+                    id="email"
                     type="email"
-                    size="xl"
-                    shadow="none"
-                    value={email}
-                    autoFocus
                     autoComplete="email"
                     inputMode="email"
-                    placeholder="you@example.com"
-                    aria-invalid={showError ? 'true' : 'false'}
+                    value={email}
+                    onChange={(event) => {
+                      setEmail(event.target.value)
+                      if (error) setError('')
+                    }}
                     disabled={isSending}
-                    className="border-input"
-                    onChange={event => { setEmail(event.target.value); if (error) setError('') }}
+                    aria-invalid={showError}
+                    className="h-14 rounded-[20px] border-slate-200 bg-white px-5 text-base shadow-sm sm:text-lg"
+                    placeholder="you@example.com"
                   />
-                  <FormFieldMessage tone="error">{showError ? error : null}</FormFieldMessage>
+                  <FormFieldMessage
+                    tone={showError ? 'error' : 'default'}
+                    className="min-h-7"
+                  >
+                    {showError ? error : ''}
+                  </FormFieldMessage>
                 </div>
 
                 <Button
                   type="submit"
-                  size="xl"
-                  shadow="md"
-                  className="w-full"
                   disabled={isSending}
+                  className="mt-4 h-14 w-full rounded-[20px] text-base font-semibold shadow-[0_14px_30px_rgba(15,23,42,0.16)]"
                 >
                   {isSending ? (
                     <>
-                      <Loader2 size={16} className="mr-2 animate-spin" />
+                      <Loader2 size={18} className="animate-spin" />
                       发送中…
                     </>
                   ) : (
@@ -291,13 +303,12 @@ export default function LoginPage() {
                   )}
                 </Button>
 
-                <div className="flex items-center gap-md pt-space-sm text-xs text-slate-500 sm:text-sm">
-                  <div className="h-px flex-1 bg-slate-200" />
-                  <span className="shrink-0">安全、快速、无密码登录</span>
-                  <div className="h-px flex-1 bg-slate-200" />
+                <div className="mt-8 flex items-center gap-4 text-sm font-medium text-slate-500">
+                  <span className="h-px flex-1 bg-slate-200" />
+                  安全、快速、无密码登录
+                  <span className="h-px flex-1 bg-slate-200" />
                 </div>
-
-                <p className="text-center text-xs leading-6 text-slate-500 sm:text-sm">
+                <p className="mt-5 text-center text-sm leading-6 text-slate-500">
                   支持国内外常见邮箱，点击邮件中的链接后会自动回到你刚才要去的页面。
                 </p>
               </form>

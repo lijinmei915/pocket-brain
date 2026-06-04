@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Design Guidelines — Pocket Brain</title>
+  <link rel="stylesheet" href="../../src/styles/tokens.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html { font-size: 16px; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
+
+    /* ── Layout ── */
+    .layout { display: grid; grid-template-columns: 200px 1fr 272px; min-height: 100vh; }
+    .preview { padding: 0 56px; overflow-y: auto; }
+
+    /* ── Tree Nav ── */
+    .tree-nav {
+      border-right: 1px solid var(--border);
+      background: var(--bg-card);
+      padding: 24px 10px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+    .tree-nav-header {
+      font-size: 11px; font-weight: 600; color: var(--text-primary);
+      padding: 0 8px; margin-bottom: 20px; letter-spacing: 0.02em;
+    }
+    .tree-group { margin-bottom: 18px; }
+    .tree-group-label {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.1em; color: var(--text-disabled);
+      padding: 0 8px; margin-bottom: 3px;
+    }
+    .tree-item {
+      display: block; font-size: 12px; color: var(--text-secondary);
+      text-decoration: none; padding: 4px 8px; border-radius: 5px;
+      transition: all 80ms; cursor: pointer;
+    }
+    .tree-item:hover { color: var(--text-primary); background: var(--bg-secondary); }
+    .tree-item.active { color: var(--text-primary); background: var(--bg-secondary); font-weight: 500; }
+
+    /* ── Spec Table ── */
+    .spec-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 2px; }
+    .spec-table th {
+      font-weight: 500; color: var(--text-secondary); text-align: left;
+      padding: 6px 8px; border-bottom: 1px solid var(--border); font-size: 11px;
+    }
+    .spec-table td { padding: 7px 8px; border-bottom: 1px solid var(--border); }
+    .spec-table td:first-child { color: var(--text-secondary); }
+    .spec-table code {
+      font-family: monospace; font-size: 11px;
+      background: var(--bg-secondary); padding: 1px 5px; border-radius: 3px;
+      color: var(--text-primary);
+    }
+
+    .editor {
+      border-left: 1px solid var(--border);
+      background: var(--bg-card);
+      padding: 24px 18px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    /* ── Page header ── */
+    .page-header { margin-bottom: 36px; }
+    .page-header h1 { font-size: 40px; font-weight: 600; margin-bottom: 4px; }
+    .page-header p { font-size: 13px; color: var(--text-secondary); }
+
+    /* ── Section ── */
+    .section { display: none; }
+    .section.active { display: block; animation: fadeIn 120ms ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    .section-head {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 20px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+    .section-title {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.1em; color: var(--text-secondary); margin: 0;
+    }
+    .doc-ref {
+      font-size: 10px; color: var(--text-disabled); font-family: monospace;
+      background: var(--bg-secondary); padding: 2px 6px; border-radius: 4px;
+    }
+    .preview-group { margin-bottom: 24px; }
+    .group-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 10px; }
+
+    /* ── Colors ── */
+    .color-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+    .color-item { display: flex; align-items: center; gap: 10px; }
+    .color-swatch { width: 36px; height: 36px; border-radius: var(--radius); border: 1px solid var(--border); flex-shrink: 0; }
+    .color-name { font-size: 12px; font-weight: 500; }
+    .color-value { font-size: 11px; color: var(--text-secondary); font-family: monospace; }
+
+    /* ── Buttons ── */
+    .btn-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      border: none; border-radius: var(--radius);
+      font-size: 13px; font-weight: 500; cursor: pointer;
+      transition: all 120ms; padding: 0 12px; height: 32px;
+      font-family: inherit; white-space: nowrap; text-decoration: none;
+    }
+    .btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+    .btn:active { transform: translateY(1px); }
+    .btn-default { background: var(--primary); color: #fff; }
+    .btn-default:hover { background: var(--primary-hover); }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
+    .btn-outline:hover { background: var(--bg-secondary); }
+    .btn-secondary { background: var(--bg-secondary); color: var(--text-primary); }
+    .btn-secondary:hover { background: var(--border); }
+    .btn-ghost { background: transparent; color: var(--text-primary); }
+    .btn-ghost:hover { background: var(--bg-secondary); }
+    .btn-destructive { background: rgba(220,38,38,0.1); color: var(--danger); }
+    .btn-destructive:hover { background: rgba(220,38,38,0.18); }
+    .btn-xs { height: 24px; padding: 0 8px; font-size: 11px; border-radius: calc(var(--radius) * 0.6); }
+    .btn-sm { height: 28px; padding: 0 10px; font-size: 12px; }
+    .btn-lg { height: 36px; padding: 0 16px; font-size: 14px; }
+    .btn-icon { width: 32px; height: 32px; padding: 0; justify-content: center; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+
+    /* ── Badge ── */
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 2px;
+      border-radius: 9999px; padding: 4px 6px;
+      font-size: 10px; font-weight: 500; line-height: 1;
+    }
+
+    /* ── Typography ── */
+    .type-row { display: flex; align-items: baseline; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .type-meta { width: 130px; flex-shrink: 0; font-size: 11px; color: var(--text-secondary); font-family: monospace; }
+
+    /* ── Spec ── */
+    .spec-block { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border); }
+    /* 编辑模式 */
+    .edit-mode [data-spec-id] {
+      outline: 1.5px dashed var(--primary); outline-offset: 4px;
+      border-radius: 6px; cursor: text; min-height: 20px;
+      transition: background 80ms;
+    }
+    .edit-mode [data-spec-id]:hover { background: rgba(51,51,51,0.04); }
+    .edit-mode [data-spec-id]:focus { outline-style: solid; outline-color: var(--primary); background: var(--bg-card); }
+    /* 导航底部操作区 */
+    .nav-footer { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 5px; }
+    .nav-action-btn {
+      width: 100%; padding: 6px 8px; border-radius: 5px;
+      border: 1px solid var(--border); background: transparent;
+      font-size: 11px; color: var(--text-secondary); cursor: pointer;
+      font-family: inherit; text-align: left; transition: all 80ms;
+    }
+    .nav-action-btn:hover { background: var(--bg-secondary); color: var(--text-primary); }
+    .nav-action-btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .nav-action-btn.primary:hover { opacity: 0.88; }
+    .spec-note { font-size: 12px; color: var(--text-secondary); line-height: 1.65; margin: 3px 0; }
+    .spec-list { font-size: 12px; color: var(--text-secondary); padding-left: 14px; margin: 5px 0; line-height: 1.8; list-style: disc; }
+    .spec-list.warn li { color: var(--danger); }
+    code.inline { font-family: monospace; font-size: 11px; background: var(--bg-secondary); padding: 1px 5px; border-radius: 3px; color: var(--text-primary); }
+
+    /* ── Form ── */
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    .input {
+      width: 100%; padding: 7px 10px;
+      border: 1px solid var(--border); border-radius: var(--radius);
+      background: var(--bg-card); color: var(--text-primary);
+      font-size: 13px; font-family: inherit; outline: none;
+      transition: border-color 120ms, box-shadow 120ms;
+    }
+    .input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(51,51,51,0.12); }
+    .input::placeholder { color: var(--text-disabled); }
+    .input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Card ── */
+    .cards-row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 12px;
+      display: flex; flex-direction: column; gap: 8px;
+      width: 220px; cursor: pointer;
+      transition: border-color 120ms, box-shadow 120ms;
+      box-shadow: var(--card-shadow);
+    }
+    .card:hover { border-color: rgba(51,51,51,0.3); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .card-title { font-size: 13px; font-weight: 500; line-height: 1.35; }
+    .card-meta { display: flex; justify-content: space-between; align-items: center; }
+    .card-date { font-size: 10px; color: var(--text-secondary); }
+
+    /* ── Effects ── */
+    .shadow-row { display: flex; gap: 20px; flex-wrap: wrap; }
+    .shadow-box {
+      width: 96px; height: 64px; background: var(--bg-card);
+      border-radius: var(--radius);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 4px; font-size: 11px; color: var(--text-secondary);
+    }
+    .shadow-label { font-size: 10px; color: var(--text-disabled); }
+    .radius-row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .radius-box {
+      width: 60px; height: 60px; background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; color: var(--text-secondary);
+    }
+
+    /* ── Editor ── */
+    .editor-title { font-size: 13px; font-weight: 600; margin-bottom: 20px; }
+    .editor-section { margin-bottom: 18px; }
+    .editor-section-title {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--text-secondary); margin-bottom: 8px;
+    }
+    .editor-row { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; }
+    .editor-swatch {
+      position: relative; width: 26px; height: 26px;
+      border-radius: 6px; border: 1px solid var(--border);
+      overflow: hidden; flex-shrink: 0; cursor: pointer;
+    }
+    .editor-swatch input[type="color"] {
+      position: absolute; inset: 0; opacity: 0;
+      width: 100%; height: 100%; cursor: pointer; padding: 0; border: none;
+    }
+    .editor-label { font-size: 11px; color: var(--text-secondary); flex: 1; overflow: hidden; white-space: nowrap; }
+    .editor-hex {
+      font-size: 10px; font-family: monospace; width: 66px;
+      padding: 2px 5px; border: 1px solid var(--border); border-radius: 4px;
+      background: var(--bg-primary); color: var(--text-primary);
+    }
+    .editor-slider { width: 100%; accent-color: var(--primary); margin-top: 2px; cursor: pointer; }
+    .editor-row-label { font-size: 11px; color: var(--text-secondary); flex: 1; }
+    .editor-row-val { font-size: 11px; font-family: monospace; color: var(--text-secondary); min-width: 30px; text-align: right; }
+    .shadow-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+    .shadow-btn {
+      padding: 5px 0; border: 1px solid var(--border); border-radius: calc(var(--radius) * 0.75);
+      background: transparent; font-size: 11px; color: var(--text-secondary);
+      cursor: pointer; font-family: inherit; transition: all 100ms;
+    }
+    .shadow-btn:hover { background: var(--bg-secondary); color: var(--text-primary); }
+    .shadow-btn.active { border-color: var(--primary); color: var(--primary); background: rgba(51,51,51,0.05); }
+    .reset-btn {
+      margin-top: 14px; width: 100%; padding: 7px;
+      border: 1px solid var(--border); border-radius: var(--radius);
+      background: transparent; font-size: 12px; color: var(--text-secondary);
+      cursor: pointer; font-family: inherit; transition: background 100ms;
+    }
+    .reset-btn:hover { background: var(--bg-secondary); }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- ── Tree Nav ── -->
+  <nav class="tree-nav">
+    <div class="tree-group">
+      <div class="tree-group-label">Tokens</div>
+      <a class="tree-item active" onclick="showSection('colors')">颜色</a>
+    </div>
+    <div class="tree-group">
+      <div class="tree-group-label">Layout</div>
+      <a class="tree-item" onclick="showSection('typography')">排版</a>
+      <a class="tree-item" onclick="showSection('layout-constants')">布局常量</a>
+    </div>
+    <div class="tree-group">
+      <div class="tree-group-label">Components</div>
+      <a class="tree-item" onclick="showSection('component-index')">组件目录</a>
+      <a class="tree-item" onclick="showSection('buttons')">按钮</a>
+      <a class="tree-item" onclick="showSection('badges')">标签</a>
+      <a class="tree-item" onclick="showSection('forms')">表单</a>
+      <a class="tree-item" onclick="showSection('cards')">卡片</a>
+      <a class="tree-item" onclick="showSection('effects')">效果</a>
+    </div>
+    <div class="nav-footer">
+      <button class="nav-action-btn" id="edit-btn" onclick="toggleEditMode()">✏️ 编辑规范</button>
+      <button class="nav-action-btn" id="reset-btn" onclick="resetSpecs()" style="display:none;color:var(--danger);border-color:var(--danger)">↺ 重置规范</button>
+    </div>
+  </nav>
+
+  <!-- ── Main Preview ── -->
+  <main class="preview">
+    <div class="page-header">
+      <h1>Design Guidelines</h1>
+      <p>Pocket Brain 设计系统 · 实时预览 + Token 编辑器</p>
+    </div>
+
+    <!-- Colors -->
+    <section class="section active" id="colors">
+      <div class="section-head">
+        <div class="section-title">颜色 Token</div>
+        <span class="doc-ref">tokens.md</span>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">品牌色</div>
+        <div class="color-grid" id="cg-brand"></div>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">文字色</div>
+        <div class="color-grid" id="cg-text"></div>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">功能色</div>
+        <div class="color-grid" id="cg-func"></div>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">容器色</div>
+        <div class="color-grid" id="cg-bg"></div>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">图标色</div>
+        <div class="color-grid" id="cg-icon"></div>
+        <div class="spec-block" data-spec-id="icon-usage">
+          <p class="spec-note"><code class="inline">--icon-primary</code> 主要操作图标 &nbsp;·&nbsp; <code class="inline">--icon-secondary</code> 辅助图标 &nbsp;·&nbsp; <code class="inline">--icon-disabled</code> 禁用态</p>
+        </div>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">使用规则</div>
+        <ul class="spec-list" data-spec-id="color-rules">
+          <li>优先使用 Layer 1 全局 token，禁止在组件内硬编码颜色值（如 <code class="inline">#333333</code>、<code class="inline">text-[#262626]</code>）</li>
+          <li>换品牌色只改 <code class="inline">--primary</code> / <code class="inline">--primary-hover</code>，shadcn 映射自动跟随</li>
+          <li>Layer 2 组件例外色（<code class="inline">--tag-bg</code> / <code class="inline">--tag-text</code>）禁止跨组件借用</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Typography -->
+    <section class="section" id="typography">
+      <div class="section-head">
+        <div class="section-title">排版</div>
+        <span class="doc-ref">tokens.md</span>
+      </div>
+      <div id="type-list"></div>
+    </section>
+
+    <!-- Layout Constants -->
+    <section class="section" id="layout-constants">
+      <div class="section-head">
+        <div class="section-title">布局常量</div>
+        <span class="doc-ref">layout.md</span>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">尺寸常量</div>
+        <table class="spec-table">
+          <tr><th>区域</th><th>值</th><th>所在文件</th></tr>
+          <tr><td>Sidebar 宽度</td><td><code>w-56</code>（224px）</td><td>Sidebar.tsx</td></tr>
+          <tr><td>Header 高度</td><td><code>h-14</code>（56px）</td><td>ItemGrid.tsx、Sidebar.tsx</td></tr>
+          <tr><td>内容区内边距</td><td><code>p-4</code> 移动 / <code>p-8</code> md+</td><td>ItemGrid.tsx</td></tr>
+          <tr><td>卡片网格间距</td><td><code>gap-4</code>（16px）</td><td>ItemGrid.tsx</td></tr>
+        </table>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">响应式断点</div>
+        <table class="spec-table">
+          <tr><th>断点</th><th>最小宽度</th><th>用途</th></tr>
+          <tr><td><code>sm</code></td><td>640px</td><td>卡片 1→2 列；弹窗宽度调整</td></tr>
+          <tr><td><code>md</code></td><td>768px</td><td>Sidebar 显示；内边距加大</td></tr>
+          <tr><td><code>lg</code></td><td>1024px</td><td>卡片 2→3 列</td></tr>
+          <tr><td><code>xl</code></td><td>1280px</td><td>卡片 3→4 列</td></tr>
+        </table>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">Z-index 层级</div>
+        <table class="spec-table">
+          <tr><th>值</th><th>用途</th></tr>
+          <tr><td><code>z-10</code></td><td>Header 吸顶</td></tr>
+          <tr><td><code>z-40</code></td><td>DesignPanel 面板</td></tr>
+          <tr><td><code>z-50</code></td><td>弹窗 / 移动端 Sidebar 遮罩</td></tr>
+        </table>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">注意事项</div>
+        <ul class="spec-list" data-spec-id="layout-notes">
+          <li>不要随意使用 <code class="inline">z-[999]</code> 或更高值，遇到层级问题先对照上表排查</li>
+          <li><code class="inline">w-56</code>（Sidebar）和 <code class="inline">h-14</code>（Header）在多处硬编码，修改需同步 <code class="inline">Sidebar.tsx</code> 和 <code class="inline">ItemGrid.tsx</code></li>
+          <li>移动端 Sidebar 通过 Sheet 抽屉展示（<code class="inline">fixed inset-0 z-50</code>），汉堡菜单按钮加 <code class="inline">md:hidden</code></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Component Index -->
+    <section class="section" id="component-index">
+      <div class="section-head">
+        <div class="section-title">组件目录</div>
+        <span class="doc-ref">docs/design/</span>
+      </div>
+      <p class="spec-note" style="margin-bottom:16px">每个共享 UI 组件对应一个规范文件。新增组件时同步更新此表。</p>
+      <table class="spec-table">
+        <thead>
+          <tr>
+            <th>组件</th>
+            <th>源文件</th>
+            <th>规范文件</th>
+            <th>使用位置</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>MoreButton</code></td>
+            <td><code>src/components/ui/MoreButton.tsx</code></td>
+            <td><code>docs/design/more-button.md</code></td>
+            <td>ItemGrid（卡片）、Sidebar（文件夹）</td>
+          </tr>
+          <tr>
+            <td><code>DialogActions</code></td>
+            <td><code>src/components/ui/DialogActions.tsx</code></td>
+            <td><code>docs/design/dialog-actions.md</code></td>
+            <td>FolderDialog、SaveForm</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="spec-block">
+        <p class="spec-note"><strong>维护规则</strong>：新增共享组件时，同时更新这张表和 <code>CLAUDE.md</code> 的改动前触发规则。规范文件统一放 <code>docs/design/</code>，一个组件一个文件。</p>
+      </div>
+    </section>
+
+    <!-- Buttons -->
+    <section class="section" id="buttons">
+      <div class="section-head">
+        <div class="section-title">按钮</div>
+        <span class="doc-ref">components/ui/button.md</span>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">Variants</div>
+        <div class="btn-row">
+          <button class="btn btn-default">Default</button>
+          <button class="btn btn-outline">Outline</button>
+          <button class="btn btn-secondary">Secondary</button>
+          <button class="btn btn-ghost">Ghost</button>
+          <button class="btn btn-destructive">Destructive</button>
+        </div>
+        <div class="spec-block" data-spec-id="btn-variants">
+          <p class="spec-note"><strong>Default</strong> — 页面主操作，每个区域只出现一次</p>
+          <p class="spec-note"><strong>Outline</strong> — 次要操作，与 Default 并列时用</p>
+          <p class="spec-note"><strong>Secondary</strong> — 中性操作，不强调</p>
+          <p class="spec-note"><strong>Ghost</strong> — 工具栏图标按钮、内联操作</p>
+          <p class="spec-note"><strong>Destructive</strong> — 删除、危险操作（不可逆）</p>
+        </div>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">Sizes</div>
+        <div class="btn-row">
+          <button class="btn btn-default btn-xs">XS</button>
+          <button class="btn btn-default btn-sm">SM</button>
+          <button class="btn btn-default">Default</button>
+          <button class="btn btn-default btn-lg">LG</button>
+          <button class="btn btn-default btn-icon">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+        <div class="spec-block" data-spec-id="btn-sizes">
+          <p class="spec-note"><code class="inline">xs</code> 24px — 密集列表内微操作 &nbsp;·&nbsp; <code class="inline">sm</code> 28px — 卡片/面板次要操作 &nbsp;·&nbsp; <code class="inline">default</code> 32px — 常规 &nbsp;·&nbsp; <code class="inline">lg</code> 36px — 表单提交/页面级主操作</p>
+        </div>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">States</div>
+        <div class="btn-row">
+          <button class="btn btn-default">正常</button>
+          <button class="btn btn-default" style="background:var(--primary-hover)">Hover</button>
+          <button class="btn btn-default" style="transform:translateY(1px)">Active</button>
+          <button class="btn btn-default" disabled>Disabled</button>
+        </div>
+        <div class="spec-block" data-spec-id="btn-states">
+          <p class="spec-note">shadcn 原版 hover 规则 <code class="inline">[a]:hover:</code> 仅对 <code class="inline">&lt;a&gt;</code> 生效，已手动修复为 <code class="inline">hover:bg-primary/85</code>。重新 <code class="inline">npx shadcn add button</code> 后需补回。</p>
+        </div>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">禁忌</div>
+        <ul class="spec-list warn" data-spec-id="btn-forbidden">
+          <li>同一区域不要出现两个 Default 按钮</li>
+          <li>Destructive 只用于不可逆操作，不用于普通警告</li>
+          <li>不要用 Link variant 做"取消"等界面操作，它只用于导航跳转</li>
+          <li>不要在 Ghost 按钮上加 border，那是 Outline 的职责</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Badges -->
+    <section class="section" id="badges">
+      <div class="section-head">
+        <div class="section-title">Badge 标签</div>
+        <span class="doc-ref">components/ui/badge.md</span>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">内容类型标签</div>
+        <div class="badge-row" id="type-tags"></div>
+        <div class="spec-block" data-spec-id="badge-typetag">
+          <p class="spec-note">使用 Badge 基础组件，通过 CSS token class 注入颜色，不新增 variant。颜色 token 定义在 <code class="inline">tokens.css</code> Layer 2。</p>
+          <ul class="spec-list warn">
+            <li>禁止加 border：背景色已足够区分，边框是视觉噪音</li>
+            <li>禁止修改字号（保持 10px），否则打破卡片信息层级</li>
+            <li><code class="inline">--tag-bg / --tag-text</code> 禁止在其他组件借用</li>
+          </ul>
+        </div>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">System Variants</div>
+        <div class="badge-row">
+          <span class="badge" style="background:var(--primary);color:#fff">Default</span>
+          <span class="badge" style="background:var(--bg-secondary);color:var(--text-primary)">Secondary</span>
+          <span class="badge" style="border:1px solid var(--border);color:var(--text-primary)">Outline</span>
+          <span class="badge" style="background:rgba(220,38,38,0.1);color:var(--danger)">Destructive</span>
+        </div>
+        <div class="spec-block" data-spec-id="badge-system">
+          <p class="spec-note"><strong>Default</strong> 强调信息 &nbsp;·&nbsp; <strong>Secondary</strong> 中性标签 &nbsp;·&nbsp; <strong>Outline</strong> 轻量标签 &nbsp;·&nbsp; <strong>Destructive</strong> 危险/错误提示</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Forms -->
+    <section class="section" id="forms">
+      <div class="section-head">
+        <div class="section-title">表单元素</div>
+        <span class="doc-ref">components/index.md</span>
+      </div>
+      <div class="form-row">
+        <div>
+          <div class="group-label">Input 正常</div>
+          <input class="input" type="text" placeholder="请输入内容…">
+        </div>
+        <div>
+          <div class="group-label">Input 有值</div>
+          <input class="input" type="text" value="已输入的内容示例">
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <div class="group-label">Input 禁用</div>
+          <input class="input" type="text" placeholder="禁用状态" disabled>
+        </div>
+        <div>
+          <div class="group-label">Textarea</div>
+          <textarea class="input" rows="2" placeholder="多行文本输入…" style="resize:none"></textarea>
+        </div>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">规范</div>
+        <ul class="spec-list" data-spec-id="form-rules">
+          <li>shadcn 已内置 focus 环、disabled 态、invalid 态，直接使用，不要覆盖</li>
+          <li>表单 Input 必须配合 <code class="inline">&lt;label&gt;</code>，不要只用 <code class="inline">placeholder</code> 代替标签（无障碍要求）</li>
+          <li>Select 下拉内容不超过 10 项，超过考虑用搜索框</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Cards -->
+    <section class="section" id="cards">
+      <div class="section-head">
+        <div class="section-title">卡片</div>
+        <span class="doc-ref">components/index.md</span>
+      </div>
+      <div class="cards-row" id="card-list"></div>
+    </section>
+
+    <!-- Effects -->
+    <section class="section" id="effects">
+      <div class="section-head">
+        <div class="section-title">效果</div>
+        <span class="doc-ref">tokens.md</span>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">阴影</div>
+        <div class="shadow-row">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+            <div class="shadow-box" style="box-shadow:none;border:1px solid var(--border)">无</div>
+            <span class="shadow-label">none</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+            <div class="shadow-box" style="box-shadow:0 1px 3px 0 rgb(0 0 0 / 0.08)">轻</div>
+            <span class="shadow-label">shadow-sm</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+            <div class="shadow-box" style="box-shadow:0 4px 12px -2px rgb(0 0 0 / 0.12)">中</div>
+            <span class="shadow-label">shadow-md</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+            <div class="shadow-box" style="box-shadow:0 10px 24px -4px rgb(0 0 0 / 0.16)">重</div>
+            <span class="shadow-label">shadow-lg</span>
+          </div>
+        </div>
+      </div>
+      <div class="preview-group">
+        <div class="group-label">阴影规范</div>
+        <ul class="spec-list" data-spec-id="shadow-rules">
+          <li><code class="inline">--shadow-light</code>（0 2px 8px / 8%）— 卡片轻阴影</li>
+          <li><code class="inline">--shadow-medium</code>（0 4px 16px / 12%）— 浮层、弹窗阴影</li>
+          <li>禁止直接写 <code class="inline">box-shadow</code> 字面值，使用 token</li>
+        </ul>
+      </div>
+      <div class="preview-group" style="margin-top:28px">
+        <div class="group-label">圆角档位</div>
+        <div class="radius-row">
+          <div class="radius-box" style="border-radius:0">0</div>
+          <div class="radius-box" style="border-radius:4px">4px</div>
+          <div class="radius-box" style="border-radius:var(--radius)">--radius</div>
+          <div class="radius-box" style="border-radius:12px">12px</div>
+          <div class="radius-box" style="border-radius:9999px">full</div>
+        </div>
+        <div class="spec-block" data-spec-id="radius-spec">
+          <p class="spec-note">全局圆角统一引用 <code class="inline">--radius</code>（默认 8px），所有组件统一参考此值，通过右侧编辑器可实时调整。</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ── Token Editor ── -->
+  <aside class="editor">
+    <div class="editor-title">Token 编辑器</div>
+    <div id="editor-content"></div>
+
+    <div class="editor-section">
+      <div class="editor-section-title">圆角</div>
+      <div class="editor-row">
+        <span class="editor-row-label">--radius</span>
+        <span class="editor-row-val" id="radius-display">8px</span>
+      </div>
+      <input type="range" class="editor-slider" id="radius-slider" min="0" max="24" step="1" value="8">
+    </div>
+
+    <div class="editor-section">
+      <div class="editor-section-title">卡片阴影</div>
+      <div class="shadow-btns" id="shadow-btns">
+        <button class="shadow-btn active" data-shadow="none" onclick="setShadow(this,'none')">无</button>
+        <button class="shadow-btn" data-shadow="sm" onclick="setShadow(this,'sm')">轻</button>
+        <button class="shadow-btn" data-shadow="md" onclick="setShadow(this,'md')">中</button>
+        <button class="shadow-btn" data-shadow="lg" onclick="setShadow(this,'lg')">重</button>
+      </div>
+    </div>
+
+    <button class="reset-btn" onclick="resetAll()">↺ 重置所有 Token</button>
+  </aside>
+</div>
+
+<script>
+// ── Token 定义 ─────────────────────────────────────────────────
+const TOKENS = [
+  { group: '品牌色', id: 'cg-brand', tokens: [
+    { key: '--primary',        label: '品牌主色',  def: '#333333' },
+    { key: '--primary-hover',  label: '品牌 Hover', def: '#404040' },
+  ]},
+  { group: '文字色', id: 'cg-text', tokens: [
+    { key: '--text-primary',   label: '主文字',    def: '#262626' },
+    { key: '--text-secondary', label: '次要文字',  def: '#8C8C8C' },
+    { key: '--text-disabled',  label: '禁用文字',  def: '#BFBFBF' },
+    { key: '--link',           label: '链接色',    def: '#2563eb' },
+  ]},
+  { group: '功能色', id: 'cg-func', tokens: [
+    { key: '--danger',         label: '危险',      def: '#dc2626' },
+    { key: '--success',        label: '成功',      def: '#059669' },
+    { key: '--warning',        label: '警告',      def: '#d97706' },
+  ]},
+  { group: '容器色', id: 'cg-bg', tokens: [
+    { key: '--bg-primary',   label: '页面背景', def: '#FAFAFA' },
+    { key: '--bg-secondary', label: '交互背景', def: '#F2F2F2' },
+    { key: '--bg-card',      label: '卡片背景', def: '#FFFFFF' },
+    { key: '--border',       label: '边框',     def: '#E8E8E8' },
+  ]},
+  { group: '图标色', id: 'cg-icon', tokens: [
+    { key: '--icon-primary',   label: '图标主色', def: '#333333' },
+    { key: '--icon-secondary', label: '图标次色', def: '#8C8C8C' },
+    { key: '--icon-disabled',  label: '图标禁用', def: '#BFBFBF' },
+  ]},
+]
+
+const TYPE_TAGS = [
+  { cls: 'component-tag-article', label: '文章', path: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z' },
+  { cls: 'component-tag-video',   label: '视频', path: 'M23 7l-7 5 7 5V7zM1 5h15a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H1' },
+  { cls: 'component-tag-audio',   label: '音频', path: 'M3 18v-6a9 9 0 0 1 18 0v6M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z' },
+  { cls: 'component-tag-tweet',   label: '帖子', path: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' },
+  { cls: 'component-tag-other',   label: '其他', path: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z' },
+]
+
+const CARD_DATA = [
+  { title: 'Pocket Brain 设计系统介绍', type: 'article', date: '4月2日' },
+  { title: '组件化设计思路讲解', type: 'video', date: '4月1日' },
+  { title: '前端工程师的设计感养成', type: 'tweet', date: '3月31日' },
+]
+
+const SHADOWS = {
+  none: 'none',
+  sm:   '0 1px 3px 0 rgb(0 0 0 / 0.08)',
+  md:   '0 4px 12px -2px rgb(0 0 0 / 0.12)',
+  lg:   '0 10px 24px -4px rgb(0 0 0 / 0.16)',
+}
+
+const TYPE_SCALES = [
+  { size: '24px', weight: '600', label: 'h1 — 页面标题' },
+  { size: '18px', weight: '600', label: 'h2 — 区块标题' },
+  { size: '15px', weight: '500', label: 'h3 — 卡片标题' },
+  { size: '14px', weight: '400', label: 'base — 正文' },
+  { size: '13px', weight: '400', label: 'sm — 次要文字' },
+  { size: '11px', weight: '400', label: 'xs — 辅助信息' },
+  { size: '10px', weight: '500', label: '[10px] — 标签' },
+]
+
+// ── 工具函数 ──────────────────────────────────────────────────
+function getVar(k) {
+  return getComputedStyle(document.documentElement).getPropertyValue(k).trim()
+}
+function setVar(k, v) {
+  document.documentElement.style.setProperty(k, v)
+}
+function toHex(val) {
+  if (!val) return null
+  val = val.trim()
+  if (val.startsWith('#')) return val.length === 7 ? val : null
+  const m = val.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)
+  if (m) return '#' + [m[1],m[2],m[3]].map(n => (+n).toString(16).padStart(2,'0')).join('')
+  return null
+}
+function getHex(key, def) {
+  return toHex(getVar(key)) || def
+}
+
+// ── 渲染色板 ─────────────────────────────────────────────────
+function renderSwatches() {
+  TOKENS.forEach(({ id, tokens }) => {
+    const el = document.getElementById(id)
+    if (!el) return
+    el.innerHTML = tokens.map(t => {
+      const hex = getHex(t.key, t.def)
+      return `<div class="color-item">
+        <div class="color-swatch" style="background:${hex}"></div>
+        <div>
+          <div class="color-name">${t.label}</div>
+          <div class="color-value">${t.key}</div>
+        </div>
+      </div>`
+    }).join('')
+  })
+}
+
+// ── 渲染编辑器 ───────────────────────────────────────────────
+function renderEditor() {
+  const container = document.getElementById('editor-content')
+  container.innerHTML = TOKENS.map(({ group, tokens }) => `
+    <div class="editor-section">
+      <div class="editor-section-title">${group}</div>
+      ${tokens.map(t => {
+        const hex = getHex(t.key, t.def)
+        return `<div class="editor-row" data-key="${t.key}">
+          <div class="editor-swatch" style="background:${hex}">
+            <input type="color" value="${hex}" data-key="${t.key}" oninput="onColor(this)">
+          </div>
+          <span class="editor-label">${t.label}</span>
+          <input class="editor-hex" type="text" value="${hex}" maxlength="7" data-key="${t.key}" oninput="onHex(this)">
+        </div>`
+      }).join('')}
+    </div>
+  `).join('')
+}
+
+function refreshEditorRow(key, hex) {
+  const row = document.querySelector(`.editor-row[data-key="${key}"]`)
+  if (!row) return
+  const swatch = row.querySelector('.editor-swatch')
+  const colorIn = row.querySelector('input[type="color"]')
+  const hexIn = row.querySelector('.editor-hex')
+  if (swatch) swatch.style.background = hex
+  if (colorIn) colorIn.value = hex
+  if (hexIn && document.activeElement !== hexIn) hexIn.value = hex
+}
+
+// ── 标签 ─────────────────────────────────────────────────────
+function renderTags() {
+  const el = document.getElementById('type-tags')
+  el.innerHTML = TYPE_TAGS.map(t => `
+    <span class="badge ${t.cls}" style="background:var(--tag-bg);color:var(--tag-text)">
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="${t.path}"/>
+      </svg>
+      ${t.label}
+    </span>
+  `).join('')
+}
+
+// ── 排版 ─────────────────────────────────────────────────────
+function renderTypography() {
+  document.getElementById('type-list').innerHTML = TYPE_SCALES.map(t => `
+    <div class="type-row">
+      <span class="type-meta">${t.size} / ${t.weight}</span>
+      <span style="font-size:${t.size};font-weight:${t.weight}">${t.label}</span>
+    </div>
+  `).join('')
+}
+
+// ── 卡片 ─────────────────────────────────────────────────────
+function renderCards() {
+  document.getElementById('card-list').innerHTML = CARD_DATA.map(c => {
+    const tag = TYPE_TAGS.find(t => t.cls.includes(c.type)) || TYPE_TAGS[0]
+    return `
+      <div class="card">
+        <div class="card-title">${c.title}</div>
+        <div class="card-meta">
+          <span class="badge ${tag.cls}" style="background:var(--tag-bg);color:var(--tag-text)">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="${tag.path}"/>
+            </svg>
+            ${tag.label}
+          </span>
+          <span class="card-date">${c.date}</span>
+        </div>
+      </div>
+    `
+  }).join('')
+}
+
+// ── 事件 ─────────────────────────────────────────────────────
+function onColor(input) {
+  const key = input.dataset.key
+  const val = input.value
+  setVar(key, val)
+  refreshEditorRow(key, val)
+  renderSwatches()
+}
+
+function onHex(input) {
+  const key = input.dataset.key
+  const val = input.value
+  if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+    setVar(key, val)
+    refreshEditorRow(key, val)
+    renderSwatches()
+  }
+}
+
+// Radius
+const radiusSlider = document.getElementById('radius-slider')
+const radiusDisplay = document.getElementById('radius-display')
+radiusSlider.addEventListener('input', e => {
+  const px = +e.target.value
+  setVar('--radius', (px / 16).toFixed(4) + 'rem')
+  radiusDisplay.textContent = px + 'px'
+})
+function initRadius() {
+  const val = getVar('--radius')
+  let px = 8
+  if (val.endsWith('rem')) px = Math.round(parseFloat(val) * 16)
+  else if (val.endsWith('px')) px = parseInt(val)
+  radiusSlider.value = px
+  radiusDisplay.textContent = px + 'px'
+}
+
+// Shadow
+function setShadow(btn, key) {
+  setVar('--card-shadow', SHADOWS[key])
+  document.querySelectorAll('.shadow-btn').forEach(b => b.classList.remove('active'))
+  btn.classList.add('active')
+}
+
+// Reset
+function resetAll() {
+  const all = TOKENS.flatMap(g => g.tokens).map(t => t.key)
+  all.forEach(k => document.documentElement.style.removeProperty(k))
+  document.documentElement.style.removeProperty('--radius')
+  document.documentElement.style.removeProperty('--card-shadow')
+  document.querySelectorAll('.shadow-btn').forEach((b,i) => b.classList.toggle('active', i===0))
+  renderEditor()
+  renderSwatches()
+  initRadius()
+}
+
+// Section navigation
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'))
+  document.getElementById(id).classList.add('active')
+  document.querySelectorAll('.tree-item').forEach(a => {
+    const fn = a.getAttribute('onclick') || ''
+    a.classList.toggle('active', fn.includes(`'${id}'`))
+  })
+  document.querySelector('.preview').scrollTop = 0
+}
+
+// ── 编辑模式 ──────────────────────────────────────────────────
+let _editMode = false
+
+function toggleEditMode() {
+  _editMode = !_editMode
+  const btn = document.getElementById('edit-btn')
+  const resetBtn = document.getElementById('reset-btn')
+  document.body.classList.toggle('edit-mode', _editMode)
+
+  document.querySelectorAll('[data-spec-id]').forEach(el => {
+    el.contentEditable = _editMode ? 'true' : 'false'
+  })
+
+  if (_editMode) {
+    btn.textContent = '💾 保存'
+    btn.classList.add('primary')
+    resetBtn.style.display = 'block'
+  } else {
+    btn.textContent = '✏️ 编辑规范'
+    btn.classList.remove('primary')
+    resetBtn.style.display = 'none'
+    saveSpecs()
+  }
+}
+
+function saveSpecs() {
+  const specs = {}
+  document.querySelectorAll('[data-spec-id]').forEach(el => {
+    specs[el.dataset.specId] = el.innerHTML
+  })
+  localStorage.setItem('pb_design_specs', JSON.stringify(specs))
+}
+
+function loadSpecs() {
+  const saved = localStorage.getItem('pb_design_specs')
+  if (!saved) return
+  try {
+    const specs = JSON.parse(saved)
+    document.querySelectorAll('[data-spec-id]').forEach(el => {
+      if (specs[el.dataset.specId] !== undefined) el.innerHTML = specs[el.dataset.specId]
+    })
+  } catch(e) {}
+}
+
+function resetSpecs() {
+  if (!confirm('清除所有已保存的规范内容并恢复默认？')) return
+  localStorage.removeItem('pb_design_specs')
+  location.reload()
+}
+
+
+// ── 初始化 ────────────────────────────────────────────────────
+loadSpecs()
+renderSwatches()
+renderEditor()
+renderTags()
+renderTypography()
+renderCards()
+initRadius()
+</script>
+</body>
+</html>

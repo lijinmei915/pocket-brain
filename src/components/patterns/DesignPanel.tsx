@@ -1,60 +1,23 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, Paintbrush, RotateCcw, Save, Copy, Check, MousePointer, Square, ChevronDown } from 'lucide-react'
+import {
+  DESIGN_TOKENS,
+  TOKEN_SELECTORS,
+  createDesignTokensSnapshot,
+  type DesignColorToken,
+  type DesignTokens,
+} from '@/design/tokens'
 
-// ── 结构化设计 Token ────────────────────────────────────────────────────────
-type DesignTokens = typeof DESIGN_TOKENS
-type PartialTokens = Partial<DesignTokens>
-
-const DESIGN_TOKENS = {
-  colors: {
-    primary:          { name: '主色',     value: '#262626',  group: '品牌' },
-    'text-primary':   { name: '主文字',   value: '#262626',  group: '文字' },
-    'text-secondary': { name: '次要文字', value: '#8C8C8C',  group: '文字' },
-    'bg-primary':     { name: '页面背景', value: '#FAFAFA',  group: '背景' },
-    'bg-card':        { name: '卡片背景', value: '#FFFFFF',  group: '背景' },
-    'bg-secondary':   { name: '交互背景', value: '#F2F2F2',  group: '背景' },
-    border:           { name: '边框',     value: '#E8E8E8',  group: '功能' },
-    danger:           { name: '危险色',   value: '#dc2626',  group: '功能' },
-  },
-  spacing: {
-    radius: { name: '圆角', value: 8 },
-  },
-  effects: {
-    shadow: {
-      name: '阴影',
-      value: 'none',
-      presets: {
-        none: { label: '无', value: 'none' },
-        sm: { label: '轻', value: '0 1px 3px 0 rgb(0 0 0 / 0.08)' },
-        md: { label: '中', value: '0 4px 12px -2px rgb(0 0 0 / 0.12)' },
-        lg: { label: '重', value: '0 10px 24px -4px rgb(0 0 0 / 0.16)' },
-      },
-    },
-  },
-}
-
-// Token 使用上下文
-const TOKEN_SELECTORS = {
-  text: {
-    colors: ['text-primary', 'text-secondary', 'primary', 'danger'],
-    spacing: [],
-    effects: [],
-  },
-  component: {
-    colors: ['primary', 'text-primary', 'bg-card', 'border', 'danger'],
-    spacing: ['radius'],
-    effects: ['shadow'],
-  },
-  background: {
-    colors: ['bg-primary', 'bg-card', 'border'],
-    spacing: ['radius'],
-    effects: [],
-  },
+type PartialTokens = {
+  colors?: Partial<Record<string, DesignColorToken>>
+  spacing?: Partial<DesignTokens['spacing']>
+  effects?: Partial<DesignTokens['effects']>
 }
 
 // ── 工具函数 ───────────────────────────────────────────────────────────────
 function isDesignerMode() {
-  return typeof window !== 'undefined' &&
+  return import.meta.env.DEV &&
+    typeof window !== 'undefined' &&
     ['localhost', '127.0.0.1'].includes(window.location.hostname)
 }
 
@@ -63,24 +26,24 @@ function applyTokens(designTokens: DesignTokens) {
   const { colors, spacing, effects } = designTokens
 
   // 设置 Layer 1 token，shadcn 别名在 CSS 中自动跟随
-  for (const [key, token] of Object.entries(colors)) {
-    s.setProperty(`--${key}`, token.value)
+  for (const token of Object.values(colors)) {
+    s.setProperty(token.cssVar, token.value)
   }
 
   if (spacing.radius) {
-    s.setProperty('--radius', `${spacing.radius.value / 16}rem`)
+    s.setProperty(spacing.radius.cssVar, `${spacing.radius.value / 16}rem`)
   }
 
   if (effects.shadow) {
-    s.setProperty('--card-shadow', effects.shadow.presets[effects.shadow.value]?.value ?? 'none')
+    s.setProperty(effects.shadow.cssVar, effects.shadow.presets[effects.shadow.value]?.value ?? 'none')
   }
 }
 
 function resetTokens() {
   const props = [
-    ...Object.keys(DESIGN_TOKENS.colors).map(k => `--${k}`),
-    '--radius',
-    '--card-shadow',
+    ...Object.values(DESIGN_TOKENS.colors).map(token => token.cssVar),
+    DESIGN_TOKENS.spacing.radius.cssVar,
+    DESIGN_TOKENS.effects.shadow.cssVar,
   ]
   props.forEach(p => document.documentElement.style.removeProperty(p))
 }
@@ -89,17 +52,17 @@ function buildCSS(designTokens: DesignTokens) {
   const { colors, spacing, effects } = designTokens
   let css = `:root {\n`
 
-  for (const [key, token] of Object.entries(colors)) {
-    css += `  --${key}: ${token.value};\n`
+  for (const token of Object.values(colors)) {
+    css += `  ${token.cssVar}: ${token.value};\n`
   }
 
   if (spacing.radius) {
-    css += `  --radius: ${spacing.radius.value / 16}rem;\n`
+    css += `  ${spacing.radius.cssVar}: ${spacing.radius.value / 16}rem;\n`
   }
 
   if (effects.shadow) {
     const shadowVal = effects.shadow.presets[effects.shadow.value]?.value ?? 'none'
-    css += `  --card-shadow: ${shadowVal};\n`
+    css += `  ${effects.shadow.cssVar}: ${shadowVal};\n`
   }
 
   css += `}`
@@ -192,9 +155,11 @@ function HighlightBox({ rect, selected }) {
         left: rect.left - 2,
         width: rect.width + 4,
         height: rect.height + 4,
-        border: `2px solid ${selected ? '#00B96B' : '#3B82F6'}`,
+        border: `2px solid ${selected ? 'var(--success)' : 'var(--link)'}`,
         borderRadius: 4,
-        background: selected ? 'rgba(0,185,107,0.06)' : 'rgba(59,130,246,0.06)',
+        background: selected
+          ? 'color-mix(in srgb, var(--success) 8%, transparent)'
+          : 'color-mix(in srgb, var(--link) 8%, transparent)',
         pointerEvents: 'none',
         zIndex: 58,
         transition: selected ? 'none' : 'all 80ms',
@@ -249,6 +214,10 @@ function Section({ title, children }) {
 }
 
 function TokensTab({ designTokens, onChange, onSave, onCopy, onReset, saveStatus }) {
+  const successColor = designTokens.colors.success?.value ?? 'var(--success)'
+  const borderColor = designTokens.colors.border?.value ?? 'var(--border)'
+  const cardColor = designTokens.colors['bg-card']?.value ?? 'var(--card)'
+
   return (
     <>
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
@@ -275,7 +244,7 @@ function TokensTab({ designTokens, onChange, onSave, onCopy, onReset, saveStatus
               max={20}
               step={1}
               value={designTokens.spacing.radius.value}
-              onChange={e => onChange('spacing', 'radius', { ...designTokens.spacing.radius, value: Number(e.target.value) })}
+              onChange={e => onChange('spacing', 'radius', Number(e.target.value))}
               className="flex-1 accent-primary"
             />
             <span className="text-xs font-mono w-10 text-right">{designTokens.spacing.radius.value}px</span>
@@ -287,11 +256,11 @@ function TokensTab({ designTokens, onChange, onSave, onCopy, onReset, saveStatus
             {(Object.entries(designTokens.effects.shadow.presets) as [string, { label: string; value: string }][]).map(([key, preset]) => (
               <button
                 key={key}
-                onClick={() => onChange('effects', 'shadow', { ...designTokens.effects.shadow, value: key })}
+                onClick={() => onChange('effects', 'shadow', key)}
                 className="py-3 text-[11px] border rounded transition-colors"
                 style={{
-                  borderColor: designTokens.effects.shadow.value === key ? '#262626' : '#E8E8E8',
-                  background: designTokens.effects.shadow.value === key ? '#26262610' : '#fff',
+                  borderColor: designTokens.effects.shadow.value === key ? designTokens.colors.primary.value : borderColor,
+                  background: designTokens.effects.shadow.value === key ? `${designTokens.colors.primary.value}10` : cardColor,
                   boxShadow: preset.value,
                 }}
               >
@@ -310,8 +279,8 @@ function TokensTab({ designTokens, onChange, onSave, onCopy, onReset, saveStatus
             className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded transition-colors"
             style={{
               borderRadius: `${designTokens.spacing.radius.value}px`,
-              background: saveStatus === 'saved' ? '#00B96B20' : designTokens.colors.primary.value,
-              color: saveStatus === 'saved' ? '#00B96B' : '#ffffff',
+              background: saveStatus === 'saved' ? `${successColor}20` : designTokens.colors.primary.value,
+              color: saveStatus === 'saved' ? successColor : 'var(--primary-foreground)',
               opacity: saveStatus === 'saving' ? 0.7 : 1,
             }}
           >
@@ -338,6 +307,9 @@ function InspectorTab({ picking, onStartPick, onStopPick, selectedEl, elStyles, 
   const [colorMode, setColorMode] = useState('hex')
   const elementType = selectedEl ? detectElementType(selectedEl) : 'component'
   const relevantTokens: PartialTokens = selectedEl ? getRelevantTokens(elementType, designTokens) : {}
+  const borderColor = designTokens.colors.border?.value ?? 'var(--border)'
+  const cardColor = designTokens.colors['bg-card']?.value ?? 'var(--card)'
+  const mutedColor = designTokens.colors['text-secondary']?.value ?? 'var(--muted-foreground)'
 
   if (!selectedEl) {
     return (
@@ -352,7 +324,7 @@ function InspectorTab({ picking, onStartPick, onStopPick, selectedEl, elStyles, 
         <button
           onClick={onStartPick}
           className="flex items-center gap-2 px-4 py-2 rounded text-sm font-medium text-white hover:opacity-80 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-          style={{ background: designTokens.colors.primary.value }}
+          style={{ background: designTokens.colors.primary.value, color: 'var(--primary-foreground)' }}
         >
           <MousePointer size={14} /> 开始选择
         </button>
@@ -454,9 +426,9 @@ function InspectorTab({ picking, onStartPick, onStopPick, selectedEl, elStyles, 
                   onClick={() => setColorMode(m)}
                   className="flex-1 text-[11px] py-1 border rounded transition-colors"
                   style={{
-                    borderColor: colorMode === m ? designTokens.colors.primary.value : '#E8E8E8',
+                    borderColor: colorMode === m ? designTokens.colors.primary.value : borderColor,
                     background: colorMode === m ? designTokens.colors.primary.value + '10' : '',
-                    color: colorMode === m ? designTokens.colors.primary.value : '#8C8C8C',
+                    color: colorMode === m ? designTokens.colors.primary.value : mutedColor,
                   }}
                 >
                   {m === 'token' ? '用 Token' : '自定义色'}
@@ -475,8 +447,8 @@ function InspectorTab({ picking, onStartPick, onStopPick, selectedEl, elStyles, 
                     }}
                     className="flex items-center gap-1.5 text-[11px] border rounded px-2 py-1.5 transition-colors text-left"
                     style={{
-                      borderColor: (pendingChanges.colorToken || colorToken) === key ? designTokens.colors.primary.value : '#E8E8E8',
-                      background: (pendingChanges.colorToken || colorToken) === key ? designTokens.colors.primary.value + '10' : '#fff',
+                      borderColor: (pendingChanges.colorToken || colorToken) === key ? designTokens.colors.primary.value : borderColor,
+                      background: (pendingChanges.colorToken || colorToken) === key ? designTokens.colors.primary.value + '10' : cardColor,
                     }}
                   >
                     <div className="w-3 h-3 rounded shrink-0" style={{ background: token.value }} />
@@ -571,7 +543,7 @@ function InspectorTab({ picking, onStartPick, onStopPick, selectedEl, elStyles, 
 
       <div className="px-4 py-3 border-t border-border space-y-2 shrink-0">
         {hasChanges && (
-          <button onClick={applyAllChanges} className="w-full py-1.5 text-xs font-medium rounded transition-colors" style={{ background: designTokens.colors.primary.value, color: '#ffffff' }}>
+          <button onClick={applyAllChanges} className="w-full py-1.5 text-xs font-medium rounded transition-colors" style={{ background: designTokens.colors.primary.value, color: 'var(--primary-foreground)' }}>
             保存改动
           </button>
         )}
@@ -592,22 +564,22 @@ function readCurrentTokens(): typeof DESIGN_TOKENS {
     return val || null
   }
 
-  const tokens = JSON.parse(JSON.stringify(DESIGN_TOKENS)) as typeof DESIGN_TOKENS
+  const tokens = createDesignTokensSnapshot()
 
-  for (const [key] of Object.entries(tokens.colors)) {
-    const cssVal = get(`--${key}`)
+  for (const [key, token] of Object.entries(tokens.colors)) {
+    const cssVal = get(token.cssVar)
     if (cssVal) tokens.colors[key].value = cssVal
   }
 
   if (tokens.spacing.radius) {
-    const radiusRem = get('--radius')
+    const radiusRem = get(tokens.spacing.radius.cssVar)
     if (radiusRem) {
       tokens.spacing.radius.value = Math.round(parseFloat(radiusRem) * 16)
     }
   }
 
   if (tokens.effects.shadow) {
-    const shadowVal = get('--card-shadow')
+    const shadowVal = get(tokens.effects.shadow.cssVar)
     if (shadowVal) {
       let found = false
       for (const [key, preset] of Object.entries(tokens.effects.shadow.presets)) {
@@ -768,7 +740,7 @@ export default function DesignPanel() {
         onClick={() => setOpen(o => !o)}
         title="设计模式 (Shift+Option+D)"
         className="fixed bottom-5 right-5 z-[60] w-9 h-9 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110"
-        style={{ background: designTokens.colors.primary.value, color: '#fff' }}
+        style={{ background: designTokens.colors.primary.value, color: 'var(--primary-foreground)' }}
       >
         <Paintbrush size={16} />
       </button>
@@ -800,7 +772,7 @@ export default function DesignPanel() {
               onClick={() => setTab(id)}
               className="flex-1 py-2 text-xs font-medium transition-colors"
               style={{
-                color: tab === id ? designTokens.colors.primary.value : '#8C8C8C',
+                color: tab === id ? designTokens.colors.primary.value : designTokens.colors['text-secondary'].value,
                 borderBottom: tab === id ? `2px solid ${designTokens.colors.primary.value}` : '2px solid transparent',
               }}
             >
